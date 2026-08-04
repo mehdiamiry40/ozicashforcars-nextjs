@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
@@ -48,6 +49,13 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
 
   return (
     <form className="quote-form" onSubmit={submitQuote} aria-labelledby="quote-form-title">
+      <Image
+        className="quote-form__ribbon"
+        src="/wp-content/uploads/2022/04/QuickandFree.png"
+        width={230}
+        height={70}
+        alt="Quick and easy — satisfaction guaranteed"
+      />
       <div className="quote-form__heading">
         <span className="eyebrow">Free, no-obligation quote</span>
         <h2 id="quote-form-title">Tell us about your vehicle</h2>
