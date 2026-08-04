@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Retained source archive, not part of the application runtime.
+    "public/wp-content/**",
   ]),
 ]);
 

@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { assertSameOriginResponse, resolveAssetOutputPath } from "./snapshot-paths.mjs";
 
 const ORIGIN = "https://www.ozicashforcars.com.au";
 const ROOT = process.cwd();
@@ -97,9 +98,15 @@ function collectSameOriginAssets(source, baseUrl, assetSet) {
     if (!resolved) continue;
     const parsed = new URL(resolved);
     if (parsed.origin !== ORIGIN) continue;
+    let decodedPathname;
+    try {
+      decodedPathname = decodeURIComponent(parsed.pathname);
+    } catch {
+      continue;
+    }
     if (
-      parsed.pathname.startsWith("/wp-content/") ||
-      parsed.pathname.startsWith("/wp-includes/")
+      !decodedPathname.includes("\\") &&
+      (decodedPathname.startsWith("/wp-content/") || decodedPathname.startsWith("/wp-includes/"))
     ) {
       assetSet.add(parsed.href);
     }
@@ -181,12 +188,13 @@ async function pooled(items, limit, worker) {
 
 async function downloadAsset(url, discoveredAssets) {
   const parsed = new URL(url);
-  const outputPath = path.join(PUBLIC_DIR, decodeURIComponent(parsed.pathname));
+  const outputPath = resolveAssetOutputPath(PUBLIC_DIR, parsed.pathname);
   const response = await fetch(url, {
     headers: { "user-agent": USER_AGENT, accept: "*/*" },
     redirect: "follow",
   });
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}: ${url}`);
+  assertSameOriginResponse(response.url, ORIGIN);
   let buffer = Buffer.from(await response.arrayBuffer());
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("text/css") || parsed.pathname.endsWith(".css")) {
@@ -220,7 +228,6 @@ async function main() {
 
   await mkdir(path.join(DATA_DIR, "pages"), { recursive: true });
   const index = {};
-  const loaders = [];
   for (const page of pages) {
     const fileKey = createHash("sha1").update(page.path).digest("hex").slice(0, 12);
     const { bodyHtml, headHtml, scripts, jsonLd, ...metadata } = page;
@@ -228,9 +235,6 @@ async function main() {
     await writeFile(
       path.join(DATA_DIR, "pages", `${fileKey}.json`),
       `${JSON.stringify({ bodyHtml, headHtml, scripts, jsonLd })}\n`,
-    );
-    loaders.push(
-      `  ${JSON.stringify(page.path)}: () => import("./pages/${fileKey}.json").then((module) => module.default),`,
     );
   }
   await writeFile(
@@ -241,11 +245,6 @@ async function main() {
       2,
     )}\n`,
   );
-  await writeFile(
-    path.join(DATA_DIR, "page-loaders.ts"),
-    `import type { PageContent } from "../app/site-types";\n\nexport const pageLoaders: Record<string, () => Promise<PageContent>> = {\n${loaders.join("\n")}\n};\n`,
-  );
-
   const downloaded = new Set();
   while (true) {
     const pending = [...assetSet].filter((url) => !downloaded.has(url));
