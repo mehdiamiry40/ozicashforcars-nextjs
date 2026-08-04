@@ -1,14 +1,11 @@
 import type { MetadataRoute } from "next";
-import rawIndex from "../data/site-index.json";
-import type { SiteIndex } from "./site-types";
-
-const siteIndex = rawIndex as SiteIndex;
+import { absoluteUrl, contentVersion, indexablePages } from "./site-data";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return Object.keys(siteIndex.pages).map((pathname) => ({
-    url: new URL(pathname, siteIndex.source).href,
-    lastModified: siteIndex.capturedAt,
-    changeFrequency: pathname.startsWith("/blog/") ? "monthly" : "yearly",
-    priority: pathname === "/" ? 1 : pathname.split("/").length <= 3 ? 0.8 : 0.6,
+  return indexablePages.map((page) => ({
+    url: absoluteUrl(page.path),
+    lastModified: contentVersion,
+    changeFrequency: page.kind === "article" ? "monthly" : "yearly",
+    priority: page.path === "/" ? 1 : page.kind === "region" || page.kind === "service" ? 0.8 : 0.6,
   }));
 }

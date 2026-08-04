@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "npm run build && node --test tests/migration.test.mjs",
+    "test": "npm run build && node --test --test-concurrency=1 tests/*.test.mjs",
     "snapshot": "node scripts/snapshot-site.mjs",
     "lint": "eslint . --ignore-pattern .next"
   },
