@@ -19,6 +19,15 @@ npm run dev
 npm test
 ```
 
+## Vercel
+
+Import this repository as a Next.js project in Vercel. The included
+`vercel.json` selects the standard Next.js build automatically, so no custom
+build or output settings are required.
+
+The separate `dev:sites`, `build:sites`, and `start:sites` scripts retain
+compatibility with the existing private Sites preview.
+
 ## Refreshing the source snapshot
 
 Run `npm run snapshot` to recapture the public WordPress pages and their
