@@ -1,4 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { SITE } from "../../site-config";
+import { quoteDeliveryConfigured, sendQuoteEmail } from "../../../lib/quotes/delivery";
+import {
+  acceptAndDeliverQuote,
+  QuoteRateLimitError,
+  QuoteStoreUnavailableError,
+  unavailableQuoteResult,
+} from "../../../lib/quotes/service";
+import { isQuoteOutboxEnabled } from "../../../lib/quotes/store";
 
 type QuotePayload = {
   name?: unknown;
@@ -11,30 +20,16 @@ type QuotePayload = {
   consent?: unknown;
   sourcePath?: unknown;
   startedAt?: unknown;
+  submissionId?: unknown;
 };
 
 const requestLog = new Map<string, number[]>();
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT = 5;
 const MAX_BODY_BYTES = 25_000;
-const DEFAULT_EMAIL_TIMEOUT_MS = 8_000;
-const MIN_EMAIL_TIMEOUT_MS = 100;
-const MAX_EMAIL_TIMEOUT_MS = 30_000;
 
 function isQuotePayload(value: unknown): value is QuotePayload {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function emailTimeoutMs() {
-  const raw = process.env.QUOTE_EMAIL_TIMEOUT_MS?.trim();
-  if (!raw) return DEFAULT_EMAIL_TIMEOUT_MS;
-  const configured = Number(raw);
-  if (!Number.isFinite(configured)) return DEFAULT_EMAIL_TIMEOUT_MS;
-  return Math.min(MAX_EMAIL_TIMEOUT_MS, Math.max(MIN_EMAIL_TIMEOUT_MS, Math.trunc(configured)));
-}
-
-function isTimeoutError(error: unknown) {
-  return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
 }
 
 function normalizeOrigin(value: string) {
@@ -84,8 +79,11 @@ function rateLimited(key: string) {
   return false;
 }
 
-function response(message: string, status: number, ok = false) {
-  return Response.json({ ok, message }, { status, headers: { "cache-control": "no-store" } });
+function response(message: string, status: number, ok = false, headers: HeadersInit = {}) {
+  return Response.json(
+    { ok, message },
+    { status, headers: { "cache-control": "no-store", ...Object.fromEntries(new Headers(headers)) } },
+  );
 }
 
 async function readLimitedBody(request: Request) {
@@ -124,10 +122,6 @@ export async function POST(request: Request) {
   if (Number(request.headers.get("content-length") || 0) > MAX_BODY_BYTES) {
     return response("The quote request is too large.", 413);
   }
-  if (rateLimited(clientKey(request))) {
-    return response(`Too many requests. Please call ${SITE.phoneDisplay}.`, 429);
-  }
-
   let payload: QuotePayload;
   try {
     const body = await readLimitedBody(request);
@@ -164,44 +158,61 @@ export async function POST(request: Request) {
     return response("Please enter a valid email address.", 400);
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.QUOTE_FROM_EMAIL;
-  const to = process.env.QUOTE_TO_EMAIL || SITE.email;
-  if (!apiKey || !from) {
+  const requestedSubmissionId = clean(payload.submissionId, 64);
+  if (requestedSubmissionId && !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedSubmissionId)) {
+    return response("The quote request reference was not valid.", 400);
+  }
+  const submissionId = requestedSubmissionId || randomUUID();
+  const clientIdentity = clientKey(request);
+
+  if (isQuoteOutboxEnabled()) {
+    try {
+      const result = await acceptAndDeliverQuote({ ...quote, submissionId }, clientIdentity);
+      return response(result.message, result.status, result.ok);
+    } catch (error) {
+      if (error instanceof QuoteRateLimitError) {
+        return response(
+          `Too many requests. Please call ${SITE.phoneDisplay}.`,
+          429,
+          false,
+          { "retry-after": String(RATE_WINDOW_MS / 1000) },
+        );
+      }
+      console.error(
+        "Durable quote acceptance failed",
+        error instanceof QuoteStoreUnavailableError ? "store-unavailable" : "store-error",
+      );
+      const unavailable = unavailableQuoteResult();
+      return response(unavailable.message, unavailable.status, unavailable.ok);
+    }
+  }
+
+  if (process.env.VERCEL) {
+    console.error("Durable quote outbox is not enabled for this Vercel environment");
+    const unavailable = unavailableQuoteResult();
+    return response(unavailable.message, unavailable.status, unavailable.ok);
+  }
+
+  if (rateLimited(clientIdentity)) {
+    return response(`Too many requests. Please call ${SITE.phoneDisplay}.`, 429);
+  }
+
+  if (!quoteDeliveryConfigured()) {
     console.error("Quote email is not configured: RESEND_API_KEY and QUOTE_FROM_EMAIL are required.");
     return response(`Online quotes are temporarily unavailable. Please call ${SITE.phoneDisplay}.`, 503);
   }
 
-  let emailResponse: Response;
-  try {
-    emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        reply_to: quote.email || undefined,
-        subject: `Vehicle quote: ${quote.vehicle} — ${quote.suburb}`,
-        text: [
-          `Name: ${quote.name}`,
-          `Phone: ${quote.phone}`,
-          `Email: ${quote.email || "Not provided"}`,
-          `Suburb: ${quote.suburb}`,
-          `Vehicle: ${quote.vehicle}`,
-          `Condition: ${quote.condition || "Not provided"}`,
-          `Source: ${quote.sourcePath}`,
-        ].join("\n"),
-      }),
-      signal: AbortSignal.timeout(emailTimeoutMs()),
-    });
-  } catch (error) {
-    const timedOut = isTimeoutError(error);
-    console.error("Quote email delivery failed", timedOut ? "timeout" : "transport-error");
-    return response(`We could not send the request. Please call ${SITE.phoneDisplay}.`, timedOut ? 504 : 502);
-  }
-  if (!emailResponse.ok) {
-    console.error("Quote email delivery failed", emailResponse.status);
-    return response(`We could not send the request. Please call ${SITE.phoneDisplay}.`, 502);
+  const delivery = await sendQuoteEmail({
+    ...quote,
+    environment: "local",
+    submissionId,
+  });
+  if (!delivery.ok) {
+    console.error("Quote email delivery failed", delivery.errorCode);
+    return response(
+      `We could not send the request. Please call ${SITE.phoneDisplay}.`,
+      delivery.errorCode === "timeout" ? 504 : 502,
+    );
   }
 
   return response("Your quote request has been sent.", 200, true);

@@ -1,4 +1,5 @@
 const originalFetch = globalThis.fetch;
+const attemptsByKey = new Map();
 
 globalThis.fetch = async (input, init = {}) => {
   const url = typeof input === "string" || input instanceof URL ? String(input) : input.url;
@@ -6,9 +7,21 @@ globalThis.fetch = async (input, init = {}) => {
 
   const payload = JSON.parse(String(init.body ?? "{}"));
   const subject = typeof payload.subject === "string" ? payload.subject : "";
+  const idempotencyKey = new Headers(init.headers).get("Idempotency-Key");
+  if (!idempotencyKey?.startsWith("quote/")) {
+    return Response.json({ message: "missing idempotency key" }, { status: 400 });
+  }
+  const attempt = (attemptsByKey.get(idempotencyKey) || 0) + 1;
+  attemptsByKey.set(idempotencyKey, attempt);
 
   if (subject.includes("[provider-error]")) {
     return Response.json({ message: "provider detail must not reach the visitor" }, { status: 500 });
+  }
+  if (subject.includes("[invalid-response]")) {
+    return Response.json({ accepted: true }, { status: 200 });
+  }
+  if (subject.includes("[fail-once]") && attempt === 1) {
+    return Response.json({ message: "simulated transient failure" }, { status: 503 });
   }
   if (subject.includes("[transport-error]")) {
     throw new Error("simulated provider transport failure");

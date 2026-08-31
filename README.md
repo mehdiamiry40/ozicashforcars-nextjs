@@ -10,7 +10,7 @@ A production-focused Next.js rebuild of the Ozi Cash for Cars website. It keeps 
 - LocalBusiness, Service, FAQ, BlogPosting and breadcrumb structured data
 - Clean sitemap and robots rules
 - Permanent redirects for known legacy broken URLs
-- Security headers and a same-origin quote endpoint with bounded input and basic abuse filtering
+- Security headers and a same-origin quote endpoint with bounded input, durable storage, idempotency and deployment-wide abuse limits
 - No analytics, tracking pixels, reCAPTCHA or legacy WordPress scripts
 
 ## Local validation
@@ -21,25 +21,42 @@ npm run lint
 npm test
 ```
 
-## Quote email setup
+## Quote delivery setup
 
-The form sends mail through the Resend HTTPS API from the Vercel function. Copy `.env.example` to `.env.local` for local development and set the same values in Vercel Project Settings → Environment Variables.
+The form durably accepts each lead in Neon before sending mail through Resend. A stable browser-generated submission ID prevents duplicate leads and duplicate provider sends. Failed sends stay queued with bounded retries, and the protected reconciliation route processes due work every minute in production.
 
+Copy `.env.example` to `.env.local` for local development. Keep preview, development and production credentials isolated in Vercel Project Settings.
+
+- `DATABASE_URL`: Neon connection string for the current environment
 - `RESEND_API_KEY`: Resend API key
 - `QUOTE_FROM_EMAIL`: a sender on a domain verified in Resend, for example `Ozi Quotes <quotes@ozicashforcars.com.au>`
+- `RESEND_EMAIL_DOMAIN`: optional verified sender-domain fallback when `QUOTE_FROM_EMAIL` is not set
 - `QUOTE_TO_EMAIL`: destination inbox; defaults to `contact@ozicashforcars.com.au`
 - `QUOTE_EMAIL_TIMEOUT_MS`: optional provider timeout from 100–30,000 ms; defaults to 8,000 ms
+- `QUOTE_OUTBOX_ENABLED`: must be `true` on Vercel; hosted requests fail closed when it is disabled
+- `QUOTE_RATE_SECRET`: at least 32 random characters, used only to HMAC short-lived rate-limit subjects
+- `QUOTE_CLIENT_RATE_LIMIT`, `QUOTE_CONTACT_RATE_LIMIT`, `QUOTE_GLOBAL_RATE_LIMIT`: optional 15-minute budgets; defaults are 5, 5 and 100
+- `CRON_SECRET`: strong random bearer secret used by the reconciliation endpoint and Vercel Cron
 
-If email is not configured or delivery fails, visitors receive a clear message with the business phone number instead of a false success screen.
+Apply the schema separately from the build:
 
-The in-process request limit is defense in depth only. Before public launch, configure a deployment-wide limit through Vercel Firewall or an atomic shared store so every function instance uses the same send budget.
+```bash
+npm run db:migrate:quotes
+```
+
+The migration is repeatable. Never run it automatically during `next build`. Quote records expire after 90 days; expired records and old rate buckets are purged by reconciliation. Rate-limit rows store HMAC hashes, not raw client addresses.
+
+When Neon cannot commit a lead, visitors receive a clear unavailable message with the business phone number. Once Neon commits, the visitor receives an honest accepted response even if Resend is temporarily unavailable. Vercel Firewall can be added as an outer abuse prefilter, but the transactional Neon budgets remain authoritative across function instances.
 
 ## Vercel release checklist
 
 1. Import the repository as a Next.js project.
-2. Add the three quote environment variables.
-3. Deploy and confirm the deployment is publicly accessible (disable Vercel Authentication for the production domain).
-4. Connect `www.ozicashforcars.com.au` and redirect the apex domain to it.
-5. Submit `https://www.ozicashforcars.com.au/sitemap.xml` in Google Search Console after DNS cutover.
+2. Provision separate production Neon and Resend resources, then add the quote environment variables.
+3. Apply the quote migration to the production database before enabling `QUOTE_OUTBOX_ENABLED`.
+4. Deploy and verify quote acceptance, provider delivery and reconciliation on a protected preview.
+5. Stage and review a Vercel Firewall rule for `POST /api/quote/`; publish it only after observing the log-only rule.
+6. Confirm the deployment is publicly accessible (disable Vercel Authentication for the production domain).
+7. Connect `www.ozicashforcars.com.au` and redirect the apex domain to it.
+8. Submit `https://www.ozicashforcars.com.au/sitemap.xml` in Google Search Console after DNS cutover.
 
 The included `vercel.json` uses the standard Next.js build with no custom output mode.

@@ -76,10 +76,28 @@ before(async () => {
   base = `http://127.0.0.1:${port}`;
   server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", String(port)], {
     cwd: new URL(".", root),
-    env: { ...process.env, RESEND_API_KEY: "", QUOTE_FROM_EMAIL: "", QUOTE_TO_EMAIL: "" },
+    env: {
+      ...process.env,
+      VERCEL: "",
+      QUOTE_OUTBOX_ENABLED: "false",
+      RESEND_API_KEY: "",
+      QUOTE_FROM_EMAIL: "",
+      QUOTE_TO_EMAIL: "",
+      CRON_SECRET: "",
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   await waitForServer();
+});
+
+test("the quote reconciliation endpoint fails closed when it is not configured", async () => {
+  const response = await fetch(`${base}/api/internal/quotes/reconcile/`);
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response.json(), {
+    ok: false,
+    message: "Reconciliation is not configured.",
+  });
 });
 
 after(async () => {

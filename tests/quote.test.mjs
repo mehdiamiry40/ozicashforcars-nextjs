@@ -33,6 +33,7 @@ async function waitForServer() {
 
 function quotePayload(vehicle = "2012 Toyota Corolla") {
   return {
+    submissionId: crypto.randomUUID(),
     name: "Test Person",
     phone: "0421 719 431",
     email: "test@example.com",
@@ -70,6 +71,8 @@ before(async () => {
       cwd: new URL(".", root),
       env: {
         ...process.env,
+        VERCEL: "",
+        QUOTE_OUTBOX_ENABLED: "false",
         NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${mockModule}`.trim(),
         RESEND_API_KEY: "re_test_key",
         QUOTE_FROM_EMAIL: "Ozi Quotes <quotes@example.com>",
@@ -115,6 +118,14 @@ test("provider rejections return a controlled visitor-safe response", async () =
   assert.equal(result.ok, false);
   assert.match(result.message, /0421 719 431/);
   assert.doesNotMatch(result.message, /provider detail/i);
+});
+
+test("malformed provider success responses remain retryable failures", async () => {
+  const response = await post(quotePayload("[invalid-response] Test Vehicle"));
+  assert.equal(response.status, 502);
+  const result = await response.json();
+  assert.equal(result.ok, false);
+  assert.match(result.message, /0421 719 431/);
 });
 
 test("provider transport failures return a controlled response", async () => {

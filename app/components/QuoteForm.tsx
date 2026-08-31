@@ -37,6 +37,7 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
   const [state, setState] = useState<SubmitState>("idle");
   const [message, setMessage] = useState("");
   const startedAt = useRef(0);
+  const submissionId = useRef<string | null>(null);
 
   useEffect(() => {
     startedAt.current = Date.now();
@@ -50,6 +51,7 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
     const form = event.currentTarget;
     const formData = new FormData(form);
     const payload = Object.fromEntries(formData.entries());
+    if (!submissionId.current) submissionId.current = crypto.randomUUID();
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), CLIENT_REQUEST_TIMEOUT_MS);
 
@@ -57,11 +59,17 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
       const response = await fetch("/api/quote/", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...payload, sourcePath, startedAt: startedAt.current }),
+        body: JSON.stringify({
+          ...payload,
+          sourcePath,
+          startedAt: startedAt.current,
+          submissionId: submissionId.current,
+        }),
         signal: controller.signal,
       });
       const result = await readQuoteResponse(response);
       if (!response.ok || !result.ok) {
+        if (response.status === 409) submissionId.current = null;
         setState("error");
         setMessage(result.message || FALLBACK_ERROR);
         return;

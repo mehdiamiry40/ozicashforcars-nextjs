@@ -12,11 +12,14 @@
     "start": "next start",
     "test": "npm run build && npm run test:integration",
     "test:integration": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "test:outbox": "npm run build && node --env-file-if-exists=.env.local --test --test-concurrency=1 tests/outbox.integration.mjs",
+    "db:migrate:quotes": "node --env-file-if-exists=.env.local scripts/migrate-quotes.mjs",
     "snapshot": "node scripts/snapshot-site.mjs",
     "lint": "eslint . --ignore-pattern .next",
     "typecheck": "tsc --noEmit --incremental false"
   },
   "dependencies": {
+    "@neondatabase/serverless": "1.1.0",
     "next": "16.3.3",
     "react": "19.2.6",
     "react-dom": "19.2.6"
