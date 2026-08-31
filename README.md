@@ -10,7 +10,7 @@ A production-focused Next.js rebuild of the Ozi Cash for Cars website. It keeps 
 - LocalBusiness, Service, FAQ, BlogPosting and breadcrumb structured data
 - Clean sitemap and robots rules
 - Permanent redirects for known legacy broken URLs
-- Security headers and a same-origin, rate-limited quote endpoint
+- Security headers and a same-origin quote endpoint with bounded input and basic abuse filtering
 - No analytics, tracking pixels, reCAPTCHA or legacy WordPress scripts
 
 ## Local validation
@@ -28,8 +28,11 @@ The form sends mail through the Resend HTTPS API from the Vercel function. Copy 
 - `RESEND_API_KEY`: Resend API key
 - `QUOTE_FROM_EMAIL`: a sender on a domain verified in Resend, for example `Ozi Quotes <quotes@ozicashforcars.com.au>`
 - `QUOTE_TO_EMAIL`: destination inbox; defaults to `contact@ozicashforcars.com.au`
+- `QUOTE_EMAIL_TIMEOUT_MS`: optional provider timeout from 100–30,000 ms; defaults to 8,000 ms
 
 If email is not configured or delivery fails, visitors receive a clear message with the business phone number instead of a false success screen.
+
+The in-process request limit is defense in depth only. Before public launch, configure a deployment-wide limit through Vercel Firewall or an atomic shared store so every function instance uses the same send budget.
 
 ## Vercel release checklist
 

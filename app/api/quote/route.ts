@@ -17,6 +17,50 @@ const requestLog = new Map<string, number[]>();
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT = 5;
 const MAX_BODY_BYTES = 25_000;
+const DEFAULT_EMAIL_TIMEOUT_MS = 8_000;
+const MIN_EMAIL_TIMEOUT_MS = 100;
+const MAX_EMAIL_TIMEOUT_MS = 30_000;
+
+function isQuotePayload(value: unknown): value is QuotePayload {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function emailTimeoutMs() {
+  const raw = process.env.QUOTE_EMAIL_TIMEOUT_MS?.trim();
+  if (!raw) return DEFAULT_EMAIL_TIMEOUT_MS;
+  const configured = Number(raw);
+  if (!Number.isFinite(configured)) return DEFAULT_EMAIL_TIMEOUT_MS;
+  return Math.min(MAX_EMAIL_TIMEOUT_MS, Math.max(MIN_EMAIL_TIMEOUT_MS, Math.trunc(configured)));
+}
+
+function isTimeoutError(error: unknown) {
+  return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+}
+
+function normalizeOrigin(value: string) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+function allowedRequestOrigins(request: Request) {
+  const requestUrl = new URL(request.url);
+  const allowed = new Set([requestUrl.origin, new URL(SITE.url).origin]);
+  const host = (request.headers.get("x-forwarded-host") || request.headers.get("host"))
+    ?.split(",", 1)[0]
+    ?.trim();
+  const protocol = (request.headers.get("x-forwarded-proto") || requestUrl.protocol)
+    .split(",", 1)[0]
+    .trim()
+    .replace(/:$/, "");
+  if (host && (protocol === "http" || protocol === "https")) {
+    const forwardedOrigin = normalizeOrigin(`${protocol}://${host}`);
+    if (forwardedOrigin) allowed.add(forwardedOrigin);
+  }
+  return allowed;
+}
 
 function clean(value: unknown, max: number) {
   return typeof value === "string"
@@ -25,7 +69,9 @@ function clean(value: unknown, max: number) {
 }
 
 function clientKey(request: Request) {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const forwardedFor =
+    request.headers.get("x-vercel-forwarded-for") || request.headers.get("x-forwarded-for");
+  return forwardedFor?.split(",")[0]?.trim() || "unknown";
 }
 
 function rateLimited(key: string) {
@@ -68,8 +114,8 @@ async function readLimitedBody(request: Request) {
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
-  const requestOrigin = new URL(request.url).origin;
-  if (origin && origin !== requestOrigin && origin !== SITE.url) {
+  const normalizedOrigin = origin ? normalizeOrigin(origin) : null;
+  if (origin && (!normalizedOrigin || !allowedRequestOrigins(request).has(normalizedOrigin))) {
     return response("This request origin is not allowed.", 403);
   }
   if (!request.headers.get("content-type")?.includes("application/json")) {
@@ -86,7 +132,9 @@ export async function POST(request: Request) {
   try {
     const body = await readLimitedBody(request);
     if (body.tooLarge) return response("The quote request is too large.", 413);
-    payload = JSON.parse(body.text) as QuotePayload;
+    const parsed: unknown = JSON.parse(body.text);
+    if (!isQuotePayload(parsed)) return response("The quote request was not valid.", 400);
+    payload = parsed;
   } catch {
     return response("The quote request was not valid.", 400);
   }
@@ -124,27 +172,35 @@ export async function POST(request: Request) {
     return response(`Online quotes are temporarily unavailable. Please call ${SITE.phoneDisplay}.`, 503);
   }
 
-  const emailResponse = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      reply_to: quote.email || undefined,
-      subject: `Vehicle quote: ${quote.vehicle} — ${quote.suburb}`,
-      text: [
-        `Name: ${quote.name}`,
-        `Phone: ${quote.phone}`,
-        `Email: ${quote.email || "Not provided"}`,
-        `Suburb: ${quote.suburb}`,
-        `Vehicle: ${quote.vehicle}`,
-        `Condition: ${quote.condition || "Not provided"}`,
-        `Source: ${quote.sourcePath}`,
-      ].join("\n"),
-    }),
-  });
+  let emailResponse: Response;
+  try {
+    emailResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        reply_to: quote.email || undefined,
+        subject: `Vehicle quote: ${quote.vehicle} — ${quote.suburb}`,
+        text: [
+          `Name: ${quote.name}`,
+          `Phone: ${quote.phone}`,
+          `Email: ${quote.email || "Not provided"}`,
+          `Suburb: ${quote.suburb}`,
+          `Vehicle: ${quote.vehicle}`,
+          `Condition: ${quote.condition || "Not provided"}`,
+          `Source: ${quote.sourcePath}`,
+        ].join("\n"),
+      }),
+      signal: AbortSignal.timeout(emailTimeoutMs()),
+    });
+  } catch (error) {
+    const timedOut = isTimeoutError(error);
+    console.error("Quote email delivery failed", timedOut ? "timeout" : "transport-error");
+    return response(`We could not send the request. Please call ${SITE.phoneDisplay}.`, timedOut ? 504 : 502);
+  }
   if (!emailResponse.ok) {
-    console.error("Quote email delivery failed", emailResponse.status, await emailResponse.text());
+    console.error("Quote email delivery failed", emailResponse.status);
     return response(`We could not send the request. Please call ${SITE.phoneDisplay}.`, 502);
   }
 

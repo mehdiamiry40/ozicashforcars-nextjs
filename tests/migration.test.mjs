@@ -1,16 +1,52 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { access, readFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
+import { createServer } from "node:net";
 import test, { after, before } from "node:test";
 
 const root = new URL("../", import.meta.url);
 const index = JSON.parse(await readFile(new URL("data/site-index.json", root), "utf8"));
 const paths = Object.keys(index.pages);
 const knownPaths = new Set(paths);
-const port = 41783;
-const base = `http://127.0.0.1:${port}`;
+let port;
+let base;
+const legacyRedirects = [
+  { source: "/cash-for-cars-brisbane/", destination: "/" },
+  {
+    source: "/cash-for-cars-logan-city-suburbs/cash-for-cars-beenleigh/",
+    destination: "/logan-city-suburbs/cash-for-cars-beenleigh/",
+  },
+  {
+    source: "/brisbane-eastern-suburbs/brisbane-eastern-suburbs/cash-for-cars-belmont/",
+    destination: "/brisbane-eastern-suburbs/cash-for-cars-belmont/",
+  },
+  {
+    source: "/brisbane-northern-suburbs/cash-for-cars-lutwyche-mcdowall/",
+    destination: "/brisbane-northern-suburbs/cash-for-cars-lutwyche/",
+  },
+  {
+    source: "/brisbane-northern-suburbs/cash-for-cars-wilston/",
+    destination: "/brisbane-southern-suburbs/cash-for-cars-wilston/",
+  },
+  {
+    source: "/brisbane-northern-suburbs/cash-for-cars-wooloowin/",
+    destination: "/brisbane-southern-suburbs/cash-for-cars-wooloowin/",
+  },
+];
 let server;
+
+async function freePort() {
+  const probe = createServer();
+  probe.listen(0, "127.0.0.1");
+  await once(probe, "listening");
+  const address = probe.address();
+  const availablePort = typeof address === "object" && address ? address.port : 0;
+  probe.close();
+  await once(probe, "close");
+  return availablePort;
+}
 
 function postChunked(path, body) {
   return new Promise((resolve, reject) => {
@@ -36,6 +72,8 @@ async function waitForServer() {
 }
 
 before(async () => {
+  port = await freePort();
+  base = `http://127.0.0.1:${port}`;
   server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", String(port)], {
     cwd: new URL(".", root),
     env: { ...process.env, RESEND_API_KEY: "", QUOTE_FROM_EMAIL: "", QUOTE_TO_EMAIL: "" },
@@ -44,7 +82,11 @@ before(async () => {
   await waitForServer();
 });
 
-after(() => server?.kill("SIGTERM"));
+after(async () => {
+  if (!server || server.exitCode !== null) return;
+  server.kill("SIGTERM");
+  await once(server, "exit");
+});
 
 test("all 282 known URLs render successfully", async () => {
   assert.equal(paths.length, 282);
@@ -113,28 +155,49 @@ test("all rendered internal links resolve to a known route", async () => {
   }
 });
 
-test("security headers, legacy redirects and the quote endpoint behave safely", async () => {
+test("every legacy redirect is one permanent hop to a live canonical route", async () => {
+  for (const { source, destination } of legacyRedirects) {
+    const redirect = await fetch(`${base}${source}`, { redirect: "manual" });
+    assert.equal(redirect.status, 308, `${source} returned ${redirect.status}`);
+
+    const location = new URL(redirect.headers.get("location"), base);
+    assert.equal(location.origin, base, `${source} redirected off origin`);
+    assert.equal(location.pathname, destination, `${source} did not use its canonical target`);
+
+    const final = await fetch(location, { redirect: "manual" });
+    assert.equal(final.status, 200, `${source} final target returned ${final.status}`);
+    assert.equal(final.headers.get("location"), null, `${source} required more than one hop`);
+  }
+});
+
+test("security headers and the quote endpoint behave safely", async () => {
   const response = await fetch(base);
   assert.match(response.headers.get("content-security-policy") ?? "", /default-src 'self'/);
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.equal(response.headers.get("x-frame-options"), "DENY");
   assert.match(response.headers.get("strict-transport-security") ?? "", /max-age=63072000/);
 
-  const redirect = await fetch(`${base}/cash-for-cars-brisbane/`, { redirect: "manual" });
-  assert.ok([307, 308].includes(redirect.status));
-  assert.equal(new URL(redirect.headers.get("location"), base).pathname, "/");
-
-  const rejected = await fetch(`${base}/api/quote`, {
+  const rejected = await fetch(`${base}/api/quote/`, {
     method: "POST",
     headers: { "content-type": "application/json", origin: "https://malicious.example" },
     body: "{}",
   });
   assert.equal(rejected.status, 403);
 
+  const sameOrigin = await fetch(`${base}/api/quote/`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: base },
+    body: JSON.stringify({
+      name: "Test Person", phone: "0421 719 431", suburb: "Brisbane", vehicle: "2012 Toyota Corolla",
+      consent: "yes", company: "", sourcePath: "/", startedAt: Date.now() - 2000,
+    }),
+  });
+  assert.equal(sameOrigin.status, 503);
+
   const oversizedStatus = await postChunked("/api/quote/", JSON.stringify({ condition: "A".repeat(30_000) }));
   assert.equal(oversizedStatus, 413);
 
-  const unavailable = await fetch(`${base}/api/quote`, {
+  const unavailable = await fetch(`${base}/api/quote/`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({

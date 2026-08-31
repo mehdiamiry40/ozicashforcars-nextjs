@@ -2,19 +2,22 @@
   "name": "ozicashforcars-nextjs",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "npm@11.6.2",
   "engines": {
-    "node": ">=22.13.0"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "npm run build && node --test --test-concurrency=1 tests/*.test.mjs",
+    "test": "npm run build && npm run test:integration",
+    "test:integration": "node --test --test-concurrency=1 tests/*.test.mjs",
     "snapshot": "node scripts/snapshot-site.mjs",
-    "lint": "eslint . --ignore-pattern .next"
+    "lint": "eslint . --ignore-pattern .next",
+    "typecheck": "tsc --noEmit --incremental false"
   },
   "dependencies": {
-    "next": "^16.3.0",
+    "next": "16.3.3",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
@@ -23,7 +26,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",
-    "eslint-config-next": "^16.3.0",
+    "eslint-config-next": "16.3.3",
     "typescript": "5.9.3"
   },
   "type": "module"
