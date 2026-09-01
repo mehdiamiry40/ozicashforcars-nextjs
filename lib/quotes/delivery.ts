@@ -3,7 +3,7 @@ import type { StoredQuoteLead } from "./store";
 
 const DEFAULT_EMAIL_TIMEOUT_MS = 8_000;
 const MIN_EMAIL_TIMEOUT_MS = 100;
-const MAX_EMAIL_TIMEOUT_MS = 30_000;
+const MAX_EMAIL_TIMEOUT_MS = 8_000;
 
 export type QuoteDeliveryResult =
   | { ok: true; providerMessageId: string }

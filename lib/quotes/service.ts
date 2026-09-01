@@ -2,14 +2,17 @@ import { createHash, createHmac } from "node:crypto";
 import { SITE } from "../../app/site-config";
 import { sendQuoteEmail } from "./delivery";
 import {
+  acquireQuoteWorkerLease,
   acceptQuoteLead,
   claimDueQuoteLeads,
   claimQuoteLead,
+  getQuoteQueueHealth,
   isQuoteOutboxEnabled,
   markQuoteDeliveryFailed,
   markQuoteSent,
   purgeExpiredQuoteData,
   quoteEnvironment,
+  releaseQuoteWorkerLease,
   QuoteRateLimitError,
   QuoteStoreUnavailableError,
   type QuoteLeadInput,
@@ -19,6 +22,8 @@ import {
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RETENTION_DAYS = 90;
 const CONSENT_VERSION = "quote-contact-v1";
+const RECONCILE_BATCH_SIZE = 5;
+const RECONCILE_PACE_MS = 250;
 
 export type QuoteInput = {
   submissionId: string;
@@ -73,6 +78,10 @@ function payloadFingerprint(quote: QuoteInput) {
 
 function acceptedMessage() {
   return "Your quote request has been saved. We will contact you shortly.";
+}
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 async function deliverClaimedLead(lead: StoredQuoteLead) {
@@ -157,20 +166,51 @@ export async function acceptAndDeliverQuote(
     : { ok: true, status: 202, message: acceptedMessage(), queued: true };
 }
 
-export async function reconcileDueQuotes(limit = 25) {
+export async function reconcileDueQuotes(limit = RECONCILE_BATCH_SIZE) {
   if (!isQuoteOutboxEnabled()) throw new QuoteStoreUnavailableError("The durable quote outbox is disabled");
   const environment = quoteEnvironment();
-  const leads = await claimDueQuoteLeads(environment, limit);
-  const outcomes = await Promise.all(leads.map(deliverClaimedLead));
-  const purged = await purgeExpiredQuoteData();
-  return {
-    claimed: leads.length,
-    sent: outcomes.filter((outcome) => outcome.sent).length,
-    retrying: outcomes.filter((outcome) => outcome.stateUpdated && !outcome.sent && !outcome.terminal).length,
-    failed: outcomes.filter((outcome) => outcome.terminal).length,
-    stateUpdateFailures: outcomes.filter((outcome) => !outcome.stateUpdated).length,
-    purged,
-  };
+  const workerLeaseToken = await acquireQuoteWorkerLease(environment);
+  if (!workerLeaseToken) {
+    return {
+      skipped: true,
+      claimed: 0,
+      sent: 0,
+      retrying: 0,
+      failed: 0,
+      stateUpdateFailures: 0,
+      backlog: await getQuoteQueueHealth(environment),
+      purged: { leads: 0, buckets: 0 },
+    };
+  }
+  try {
+    const leads = await claimDueQuoteLeads(environment, limit);
+    const outcomes: Awaited<ReturnType<typeof deliverClaimedLead>>[] = [];
+    for (const [index, lead] of leads.entries()) {
+      outcomes.push(await deliverClaimedLead(lead));
+      if (index < leads.length - 1) await wait(RECONCILE_PACE_MS);
+    }
+    const purged = await purgeExpiredQuoteData();
+    const backlog = await getQuoteQueueHealth(environment);
+    return {
+      skipped: false,
+      claimed: leads.length,
+      sent: outcomes.filter((outcome) => outcome.sent).length,
+      retrying: outcomes.filter((outcome) => outcome.stateUpdated && !outcome.sent && !outcome.terminal).length,
+      failed: outcomes.filter((outcome) => outcome.terminal).length,
+      stateUpdateFailures: outcomes.filter((outcome) => !outcome.stateUpdated).length,
+      backlog,
+      purged,
+    };
+  } finally {
+    try {
+      await releaseQuoteWorkerLease(environment, workerLeaseToken);
+    } catch {
+      console.error(JSON.stringify({
+        level: "error",
+        message: "Quote reconciliation could not release its worker lease",
+      }));
+    }
+  }
 }
 
 export { QuoteRateLimitError, QuoteStoreUnavailableError };

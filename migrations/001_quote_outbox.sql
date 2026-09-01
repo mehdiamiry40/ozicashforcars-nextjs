@@ -57,6 +57,15 @@ CREATE INDEX IF NOT EXISTS quote_rate_bucket_expiry_idx ON quote_rate_bucket (ex
 
 -- migrate:split
 
+CREATE TABLE IF NOT EXISTS quote_worker_lease (
+  environment varchar(32) PRIMARY KEY,
+  lease_token uuid NOT NULL,
+  lease_until timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- migrate:split
+
 CREATE TABLE IF NOT EXISTS quote_delivery_attempt (
   environment varchar(32) NOT NULL,
   submission_id uuid NOT NULL,

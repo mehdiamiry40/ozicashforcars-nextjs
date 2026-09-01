@@ -1,6 +1,15 @@
 import { readFile } from "node:fs/promises";
 import { neon } from "@neondatabase/serverless";
 
+const expectedProjectId = process.env.MIGRATION_EXPECTED_NEON_PROJECT_ID;
+const actualProjectId = process.env.NEON_PROJECT_ID;
+if (!expectedProjectId) {
+  throw new Error("MIGRATION_EXPECTED_NEON_PROJECT_ID is required");
+}
+if (actualProjectId !== expectedProjectId) {
+  throw new Error("Refusing quote migration: NEON_PROJECT_ID does not match MIGRATION_EXPECTED_NEON_PROJECT_ID");
+}
+
 const databaseUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL_UNPOOLED or DATABASE_URL is required");
 

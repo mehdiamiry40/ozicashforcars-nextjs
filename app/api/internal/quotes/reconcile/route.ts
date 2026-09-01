@@ -37,14 +37,46 @@ export async function GET(request: Request) {
   try {
     const result = await reconcileDueQuotes();
     if (result.failed > 0) {
-      console.error("Quote reconciliation reached terminal delivery failures", result.failed);
+      console.error(JSON.stringify({
+        level: "error",
+        message: "Quote reconciliation reached terminal delivery failures",
+        failed: result.failed,
+      }));
     }
     if (result.stateUpdateFailures > 0) {
-      console.error("Quote reconciliation could not finalize delivery state", result.stateUpdateFailures);
+      console.error(JSON.stringify({
+        level: "error",
+        message: "Quote reconciliation could not finalize delivery state",
+        stateUpdateFailures: result.stateUpdateFailures,
+      }));
     }
-    return Response.json({ ok: true, ...result }, { headers: NO_STORE_HEADERS });
+    if (result.backlog.failed > 0 || result.backlog.expiredLeases > 0) {
+      console.error(JSON.stringify({
+        level: "error",
+        message: "Quote outbox requires operator attention",
+        failedBacklog: result.backlog.failed,
+        expiredLeases: result.backlog.expiredLeases,
+      }));
+    }
+    const staleBacklog = result.backlog.due > 0 && result.backlog.oldestDueSeconds > 300;
+    if (staleBacklog) {
+      console.error(JSON.stringify({
+        level: "error",
+        message: "Quote outbox has a stale due backlog",
+        due: result.backlog.due,
+        oldestDueSeconds: result.backlog.oldestDueSeconds,
+      }));
+    }
+    const healthy = result.stateUpdateFailures === 0
+      && result.backlog.failed === 0
+      && result.backlog.expiredLeases === 0
+      && !staleBacklog;
+    return Response.json(
+      { ok: healthy, ...result },
+      { status: healthy ? 200 : 503, headers: NO_STORE_HEADERS },
+    );
   } catch {
-    console.error("Quote reconciliation failed");
+    console.error(JSON.stringify({ level: "error", message: "Quote reconciliation failed" }));
     return Response.json(
       { ok: false, message: "Quote reconciliation failed." },
       { status: 503, headers: NO_STORE_HEADERS },

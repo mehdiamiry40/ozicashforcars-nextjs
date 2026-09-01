@@ -3,6 +3,7 @@ import { neon } from "@neondatabase/serverless";
 
 const MAX_DELIVERY_ATTEMPTS = 5;
 const DELIVERY_LEASE_SECONDS = 120;
+const WORKER_LEASE_SECONDS = 70;
 const RETRY_DELAYS_SECONDS = [60, 300, 900, 3600, 7200] as const;
 
 type Sql = ReturnType<typeof neon>;
@@ -215,6 +216,38 @@ export async function claimDueQuoteLeads(environment: string, limit = 10) {
   return rows.map(parseStoredLead);
 }
 
+export async function acquireQuoteWorkerLease(environment: string) {
+  const sql = getQuoteSql();
+  const leaseToken = randomUUID();
+  const rows = (await sql`
+    INSERT INTO quote_worker_lease (environment, lease_token, lease_until)
+    VALUES (
+      ${environment},
+      ${leaseToken}::uuid,
+      now() + (${WORKER_LEASE_SECONDS} * interval '1 second')
+    )
+    ON CONFLICT (environment)
+    DO UPDATE SET
+      lease_token = EXCLUDED.lease_token,
+      lease_until = EXCLUDED.lease_until,
+      updated_at = now()
+    WHERE quote_worker_lease.lease_until < now()
+    RETURNING lease_token
+  `) as Record<string, unknown>[];
+  return rows.length === 1 ? leaseToken : null;
+}
+
+export async function releaseQuoteWorkerLease(environment: string, leaseToken: string) {
+  const sql = getQuoteSql();
+  const rows = (await sql`
+    DELETE FROM quote_worker_lease
+     WHERE environment = ${environment}
+       AND lease_token = ${leaseToken}::uuid
+    RETURNING lease_token
+  `) as Record<string, unknown>[];
+  return rows.length === 1;
+}
+
 export async function markQuoteSent(lead: StoredQuoteLead, providerMessageId: string) {
   const sql = getQuoteSql();
   const rows = (await sql`
@@ -286,4 +319,29 @@ export async function purgeExpiredQuoteData() {
     tx`DELETE FROM quote_rate_bucket WHERE expires_at < now() - interval '1 day' RETURNING subject_hash`,
   ])) as Record<string, unknown>[][];
   return { leads: leadRows.length, buckets: bucketRows.length };
+}
+
+export async function getQuoteQueueHealth(environment: string) {
+  const sql = getQuoteSql();
+  const rows = (await sql`
+    SELECT
+      count(*) FILTER (WHERE status = 'failed')::int AS failed,
+      count(*) FILTER (WHERE status = 'accepted' AND next_attempt_at <= now())::int AS due,
+      count(*) FILTER (WHERE status = 'sending' AND lease_until < now())::int AS expired_leases,
+      COALESCE(
+        EXTRACT(EPOCH FROM now() - (min(next_attempt_at) FILTER (
+          WHERE status = 'accepted' AND next_attempt_at <= now()
+        ))),
+        0
+      )::int AS oldest_due_seconds
+      FROM quote_lead
+     WHERE environment = ${environment}
+  `) as Record<string, unknown>[];
+  const row = rows[0] ?? {};
+  return {
+    failed: Number(row.failed ?? 0),
+    due: Number(row.due ?? 0),
+    expiredLeases: Number(row.expired_leases ?? 0),
+    oldestDueSeconds: Number(row.oldest_due_seconds ?? 0),
+  };
 }

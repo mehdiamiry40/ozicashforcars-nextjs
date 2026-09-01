@@ -126,6 +126,7 @@ after(async () => {
   await sql.transaction((tx) => [
     tx`DELETE FROM quote_lead WHERE environment = ${environment}`,
     tx`DELETE FROM quote_rate_bucket WHERE environment = ${environment}`,
+    tx`DELETE FROM quote_worker_lease WHERE environment = ${environment}`,
   ]);
 });
 
@@ -195,6 +196,66 @@ test("one transient failure is recovered by exactly one of two concurrent worker
   assert.ok(lead.provider_message_id);
 });
 
+test("reconciliation paces a backlog below the provider burst limit", async () => {
+  const payloads = [5, 6, 7].map((suffix) => quotePayload({
+    phone: `0400 111 00${suffix}`,
+    email: `paced-${suffix}@example.com`,
+    vehicle: `[fail-once] Paced retry vehicle ${suffix}`,
+  }));
+  for (const [index, payload] of payloads.entries()) {
+    assert.equal((await post(payload, `198.51.100.${6 + index}`)).status, 202);
+  }
+
+  await sql`
+    UPDATE quote_lead
+       SET next_attempt_at = now()
+     WHERE environment = ${environment}
+       AND submission_id = ANY(${payloads.map((payload) => payload.submissionId)}::uuid[])
+  `;
+  const startedAt = Date.now();
+  const workers = await Promise.all([reconcile(), reconcile()]);
+  const elapsed = Date.now() - startedAt;
+  assert.ok(workers.every((worker) => worker.status === 200));
+  assert.equal(workers.reduce((sum, worker) => sum + worker.body.claimed, 0), payloads.length);
+  assert.equal(workers.filter((worker) => worker.body.skipped).length, 1);
+  assert.ok(elapsed >= 450, `paced reconciliation completed too quickly in ${elapsed}ms`);
+
+  for (const payload of payloads) {
+    const lead = await storedLead(payload.submissionId);
+    assert.equal(lead.status, "sent");
+    assert.equal(lead.attempt_count, 2);
+  }
+});
+
+test("a stale due backlog keeps reconciliation unhealthy", async () => {
+  const payloads = [10, 11, 12, 13, 14, 15].map((suffix) => quotePayload({
+    phone: `0400 111 0${suffix}`,
+    email: `stale-${suffix}@example.com`,
+    vehicle: `[invalid-response] Stale backlog vehicle ${suffix}`,
+  }));
+  for (const [index, payload] of payloads.entries()) {
+    assert.equal((await post(payload, `198.51.100.${20 + index}`)).status, 202);
+  }
+  await sql`
+    UPDATE quote_lead
+       SET next_attempt_at = now() - interval '10 minutes'
+     WHERE environment = ${environment}
+       AND submission_id = ANY(${payloads.map((payload) => payload.submissionId)}::uuid[])
+  `;
+  const worker = await reconcile();
+  assert.equal(worker.status, 503);
+  assert.equal(worker.body.ok, false);
+  assert.equal(worker.body.claimed, 5);
+  assert.equal(worker.body.backlog.due, 1);
+  assert.ok(worker.body.backlog.oldestDueSeconds >= 590);
+  await sql`
+    UPDATE quote_lead
+       SET next_attempt_at = now() + interval '1 day'
+     WHERE environment = ${environment}
+       AND submission_id = ANY(${payloads.map((payload) => payload.submissionId)}::uuid[])
+  `;
+});
+
 test("malformed provider success stays queued and cron authentication fails closed", async () => {
   const payload = quotePayload({
     phone: "0400 111 004",
@@ -210,4 +271,15 @@ test("malformed provider success stays queued and cron authentication fails clos
   assert.equal(missing.status, 401);
   assert.equal((await reconcile("incorrect-secret-that-is-long-enough-0000")).status, 401);
   assert.equal((await reconcile("é".repeat(cronSecret.length))).status, 401);
+
+  await sql`
+    UPDATE quote_lead
+       SET status = 'failed'
+     WHERE environment = ${environment}
+       AND submission_id = ${payload.submissionId}::uuid
+  `;
+  const unhealthy = await reconcile();
+  assert.equal(unhealthy.status, 503);
+  assert.equal(unhealthy.body.ok, false);
+  assert.equal(unhealthy.body.backlog.failed, 1);
 });
