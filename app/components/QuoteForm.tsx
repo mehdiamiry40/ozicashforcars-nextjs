@@ -4,14 +4,40 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { SITE } from "../site-config";
 
 type SubmitState = "idle" | "submitting" | "error";
+
+type QuoteResponse = {
+  ok?: boolean;
+  message?: string;
+};
+
+const FALLBACK_ERROR = `We could not send your request. Please call ${SITE.phoneDisplay}.`;
+const CLIENT_REQUEST_TIMEOUT_MS = 12_000;
+
+async function readQuoteResponse(response: Response): Promise<QuoteResponse> {
+  const mediaType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+  if (mediaType !== "application/json" && !mediaType?.endsWith("+json")) return {};
+  try {
+    const value: unknown = await response.json();
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+    const result = value as Record<string, unknown>;
+    return {
+      ok: typeof result.ok === "boolean" ? result.ok : undefined,
+      message: typeof result.message === "string" ? result.message : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
 
 export function QuoteForm({ sourcePath }: { sourcePath: string }) {
   const router = useRouter();
   const [state, setState] = useState<SubmitState>("idle");
   const [message, setMessage] = useState("");
   const startedAt = useRef(0);
+  const submissionId = useRef<string | null>(null);
 
   useEffect(() => {
     startedAt.current = Date.now();
@@ -25,30 +51,45 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
     const form = event.currentTarget;
     const formData = new FormData(form);
     const payload = Object.fromEntries(formData.entries());
+    if (!submissionId.current) submissionId.current = crypto.randomUUID();
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), CLIENT_REQUEST_TIMEOUT_MS);
 
     try {
-      const response = await fetch("/api/quote", {
+      const response = await fetch("/api/quote/", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...payload, sourcePath, startedAt: startedAt.current }),
+        body: JSON.stringify({
+          ...payload,
+          sourcePath,
+          startedAt: startedAt.current,
+          submissionId: submissionId.current,
+        }),
+        signal: controller.signal,
       });
-      const result = (await response.json()) as { ok?: boolean; message?: string };
+      const result = await readQuoteResponse(response);
       if (!response.ok || !result.ok) {
-        throw new Error(result.message || "We could not send your request.");
+        if (response.status === 409) submissionId.current = null;
+        setState("error");
+        setMessage(result.message || FALLBACK_ERROR);
+        return;
       }
       router.push("/thank-you/");
-    } catch (error) {
+    } catch {
       setState("error");
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "We could not send your request. Please call 0421 719 431.",
-      );
+      setMessage(FALLBACK_ERROR);
+    } finally {
+      window.clearTimeout(timeout);
     }
   }
 
   return (
-    <form className="quote-form" onSubmit={submitQuote} aria-labelledby="quote-form-title">
+    <form
+      className="quote-form"
+      onSubmit={submitQuote}
+      aria-labelledby="quote-form-title"
+      aria-busy={state === "submitting"}
+    >
       <Image
         className="quote-form__ribbon"
         src="/wp-content/uploads/2022/04/QuickandFree.png"

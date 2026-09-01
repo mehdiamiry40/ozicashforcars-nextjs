@@ -8,11 +8,14 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/cash-for-cars-brisbane", destination: "/", permanent: true },
-      { source: "/cash-for-cars-logan-city-suburbs/:slug", destination: "/logan-city-suburbs/:slug", permanent: true },
-      { source: "/brisbane-eastern-suburbs/brisbane-eastern-suburbs/:slug", destination: "/brisbane-eastern-suburbs/:slug", permanent: true },
-      { source: "/brisbane-northern-suburbs/cash-for-cars-lutwyche-mcdowall", destination: "/brisbane-northern-suburbs/cash-for-cars-lutwyche", permanent: true },
-      { source: "/brisbane-northern-suburbs/cash-for-cars-wilston", destination: "/brisbane-southern-suburbs/cash-for-cars-wilston", permanent: true },
-      { source: "/brisbane-northern-suburbs/cash-for-cars-wooloowin", destination: "/brisbane-southern-suburbs/cash-for-cars-wooloowin", permanent: true },
+      { source: "/cash-for-cars-logan-city-suburbs/:slug", destination: "/logan-city-suburbs/:slug/", permanent: true },
+      { source: "/brisbane-eastern-suburbs/brisbane-eastern-suburbs/:slug", destination: "/brisbane-eastern-suburbs/:slug/", permanent: true },
+      { source: "/brisbane-northern-suburbs/cash-for-cars-lutwyche-mcdowall", destination: "/brisbane-northern-suburbs/cash-for-cars-lutwyche/", permanent: true },
+      // The captured route inventory currently contains these two pages only under
+      // southern suburbs. Preserve those known-good targets until canonical content
+      // exists for a geographically corrected route.
+      { source: "/brisbane-northern-suburbs/cash-for-cars-wilston", destination: "/brisbane-southern-suburbs/cash-for-cars-wilston/", permanent: true },
+      { source: "/brisbane-northern-suburbs/cash-for-cars-wooloowin", destination: "/brisbane-southern-suburbs/cash-for-cars-wooloowin/", permanent: true },
     ];
   },
   async headers() {

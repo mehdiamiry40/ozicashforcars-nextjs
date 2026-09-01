@@ -99,11 +99,12 @@ export default async function SitePageRoute({ params }: PageProps) {
   const page = getPage(pagePathFromSlug(slug));
   if (!page) notFound();
   const jsonLd = JSON.stringify(structuredData(page)).replace(/</g, "\\u003c");
+  const pageHasQuote = ["home", "service", "region", "location", "faq", "contact"].includes(page.kind);
 
   return (
     <>
       <a className="skip-link" href="#main-content">Skip to main content</a>
-      <Header />
+      <Header quoteHref={pageHasQuote ? "#quote" : "/sell-my-car/#quote"} />
       <main id="main-content"><PageContent page={page} /></main>
       <Footer />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
