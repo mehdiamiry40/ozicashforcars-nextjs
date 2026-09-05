@@ -71,10 +71,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-    env:
-      # These credentials exist only in this ephemeral service. No repository,
-      # deployment or provider secrets are made available to this job.
-      OUTBOX_TEST_POSTGRES_URL: postgresql://quote_ci:local-test-only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -92,4 +88,8 @@ jobs:
         run: npm ci
 
       - name: Build and test durable quote delivery
+        env:
+          # The job context is available at step scope, after the ephemeral
+          # service port has been assigned. These are local test credentials.
+          OUTBOX_TEST_POSTGRES_URL: postgresql://quote_ci:local-test-only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres
         run: npm run test:outbox
