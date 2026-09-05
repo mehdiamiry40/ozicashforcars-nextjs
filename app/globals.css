@@ -110,7 +110,7 @@ p { margin: 0 0 1rem; }
   position: relative; padding: 2.15rem 1.6rem 1.55rem; border: 0; border-radius: 0;
   background: var(--paper); color: var(--ink); box-shadow: var(--shadow);
 }
-.quote-form__ribbon { position: absolute; z-index: 2; top: -37px; left: 50%; width: 230px; max-width: 70%; height: auto; transform: translateX(-50%); }
+.quote-form__fields { min-width: 0; margin: 0; padding: 0; border: 0; }
 .quote-form__heading { text-align: center; }
 .quote-form__heading .eyebrow { display: none; }
 .quote-form__heading h2 { color: var(--gold-dark); font-size: clamp(1.55rem, 2.8vw, 1.95rem); }

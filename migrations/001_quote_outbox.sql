@@ -134,7 +134,9 @@ BEGIN
     RETURN;
   END IF;
 
-  DELETE FROM quote_rate_bucket WHERE expires_at < now() - interval '1 day';
+  DELETE FROM quote_rate_bucket
+   WHERE environment = p_environment
+     AND expires_at < now() - interval '1 day';
 
   INSERT INTO quote_rate_bucket AS bucket
     (environment, scope, subject_hash, window_start, request_count, expires_at)

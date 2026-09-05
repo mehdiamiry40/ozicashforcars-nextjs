@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { assertSameOriginResponse, resolveAssetOutputPath } from "./snapshot-paths.mjs";
+import { resolveAssetOutputPath } from "./snapshot-paths.mjs";
+import { fetchSnapshotResource } from "./snapshot-fetch.mjs";
 
 const ORIGIN = "https://www.ozicashforcars.com.au";
 const ROOT = process.cwd();
@@ -18,12 +19,13 @@ const decodeXml = (value) =>
     .replaceAll("&gt;", ">");
 
 async function fetchText(url) {
-  const response = await fetch(url, {
-    headers: { "user-agent": USER_AGENT, accept: "text/html,application/xml,*/*" },
-    redirect: "follow",
+  const resource = await fetchSnapshotResource(url, {
+    origin: ORIGIN,
+    userAgent: USER_AGENT,
+    accept: "text/html,application/xml,*/*",
+    maxBytes: 2 * 1024 * 1024,
   });
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}: ${url}`);
-  return response.text();
+  return { text: resource.body.toString("utf8"), url: resource.url };
 }
 
 function absoluteUrl(value, base = `${ORIGIN}/`) {
@@ -113,8 +115,8 @@ function collectSameOriginAssets(source, baseUrl, assetSet) {
   }
 }
 
-function parsePage(url, html, assetSet) {
-  collectSameOriginAssets(html, url, assetSet);
+function parsePage(url, html, assetSet, assetBase = url) {
+  collectSameOriginAssets(html, assetBase, assetSet);
   const head = firstMatch(html, /<head\b[^>]*>([\s\S]*?)<\/head>/i);
   const bodyAttributes = firstMatch(html, /<body\b([^>]*)>/i);
   let body = firstMatch(html, /<body\b[^>]*>([\s\S]*?)<\/body>/i);
@@ -150,7 +152,7 @@ function parsePage(url, html, assetSet) {
   const title = stripTags(firstMatch(head, /<title[^>]*>([\s\S]*?)<\/title>/i));
   const description = extractMeta(head, "description");
   const ogImage = extractMeta(head, "og:image", "property");
-  const absoluteOgImage = absoluteUrl(ogImage, url);
+  const absoluteOgImage = absoluteUrl(ogImage, assetBase);
   if (absoluteOgImage && new URL(absoluteOgImage).origin === ORIGIN) {
     assetSet.add(absoluteOgImage);
   }
@@ -189,17 +191,15 @@ async function pooled(items, limit, worker) {
 async function downloadAsset(url, discoveredAssets) {
   const parsed = new URL(url);
   const outputPath = resolveAssetOutputPath(PUBLIC_DIR, parsed.pathname);
-  const response = await fetch(url, {
-    headers: { "user-agent": USER_AGENT, accept: "*/*" },
-    redirect: "follow",
+  const resource = await fetchSnapshotResource(url, {
+    origin: ORIGIN,
+    userAgent: USER_AGENT,
   });
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}: ${url}`);
-  assertSameOriginResponse(response.url, ORIGIN);
-  let buffer = Buffer.from(await response.arrayBuffer());
-  const contentType = response.headers.get("content-type") ?? "";
+  let buffer = resource.body;
+  const contentType = resource.contentType;
   if (contentType.includes("text/css") || parsed.pathname.endsWith(".css")) {
     let css = buffer.toString("utf8");
-    collectSameOriginAssets(css, url, discoveredAssets);
+    collectSameOriginAssets(css, resource.url, discoveredAssets);
     css = localizeMarkup(css);
     buffer = Buffer.from(css);
   }
@@ -212,14 +212,15 @@ async function main() {
     fetchText(`${ORIGIN}/page-sitemap.xml`),
     fetchText(`${ORIGIN}/post-sitemap.xml`),
   ]);
-  const urls = [...`${pageSitemap}\n${postSitemap}`.matchAll(/<loc>([^<]+)<\/loc>/g)]
+  const urls = [...`${pageSitemap.text}\n${postSitemap.text}`.matchAll(/<loc>([^<]+)<\/loc>/g)]
     .map((entry) => decodeXml(entry[1]))
     .filter((url, index, list) => list.indexOf(url) === index);
 
   console.log(`Snapshotting ${urls.length} public URLs…`);
   const assetSet = new Set();
   const pages = await pooled(urls, 8, async (url, index) => {
-    const page = parsePage(url, await fetchText(url), assetSet);
+    const resource = await fetchText(url);
+    const page = parsePage(url, resource.text, assetSet, resource.url);
     if ((index + 1) % 25 === 0 || index + 1 === urls.length) {
       console.log(`Fetched ${index + 1}/${urls.length} pages`);
     }

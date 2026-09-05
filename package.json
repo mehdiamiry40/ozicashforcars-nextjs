@@ -12,7 +12,9 @@
     "start": "next start",
     "test": "npm run build && npm run test:integration",
     "test:integration": "node --test --test-concurrency=1 tests/*.test.mjs",
-    "test:outbox": "npm run build && node --env-file-if-exists=.env.local --test --test-concurrency=1 tests/outbox.integration.mjs",
+    "test:browser": "playwright test",
+    "test:outbox": "npm run build && npm run test:outbox:integration",
+    "test:outbox:integration": "node scripts/test-outbox-isolated.mjs",
     "db:migrate:quotes": "node --env-file-if-exists=.env.local scripts/migrate-quotes.mjs",
     "snapshot": "node scripts/snapshot-site.mjs",
     "lint": "eslint . --ignore-pattern .next",
@@ -25,11 +27,13 @@
     "react-dom": "19.2.6"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.3",
+    "pg": "8.23.0",
     "typescript": "5.9.3"
   },
   "type": "module"

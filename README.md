@@ -5,21 +5,26 @@ A production-focused Next.js rebuild of the Ozi Cash for Cars website. It keeps 
 ## What is included
 
 - Responsive, keyboard-accessible page templates and quote forms
-- One consistent offer message: up to $19,999, subject to vehicle value
+- Distinct service guides without unsupported maximum-offer, one-hour or testimonial claims
 - Indexable service and regional pages, with local suburb URLs consolidated to their regional canonical page
-- LocalBusiness, Service, FAQ, BlogPosting and breadcrumb structured data
+- Organization, page-specific WebPage, Service, BlogPosting and breadcrumb structured data
 - Clean sitemap and robots rules
 - Permanent redirects for known legacy broken URLs
 - Security headers and a same-origin quote endpoint with bounded input, durable storage, idempotency and deployment-wide abuse limits
+- Non-submitting static quote form with a phone alternative until browser initialization succeeds
 - No analytics, tracking pixels, reCAPTCHA or legacy WordPress scripts
 
 ## Local validation
 
 ```bash
-npm install
+npm ci
 npm run lint
 npm test
+npx playwright install chromium
+npm run test:browser
 ```
+
+CI also runs the mandatory real-PostgreSQL outbox suite. See [isolated database testing](docs/OUTBOX_TESTING.md) for safe local setup; never point that suite at a preview or production database.
 
 ## Quote delivery setup
 
@@ -37,6 +42,7 @@ Copy `.env.example` to `.env.local` for local development. Keep preview, develop
 - `QUOTE_RATE_SECRET`: at least 32 random characters, used only to HMAC short-lived rate-limit subjects
 - `QUOTE_CLIENT_RATE_LIMIT`, `QUOTE_CONTACT_RATE_LIMIT`, `QUOTE_GLOBAL_RATE_LIMIT`: optional 15-minute budgets; defaults are 5, 5 and 100
 - `CRON_SECRET`: strong random bearer secret used by the reconciliation endpoint and Vercel Cron
+- `QUOTE_MONITOR_SECRET`: a separate random bearer secret (at least 32 characters) for the read-only queue-health endpoint
 
 Apply the schema separately from the build:
 
@@ -63,7 +69,9 @@ The included `vercel.json` uses the standard Next.js build with no custom output
 
 ## Production monitoring and rollback
 
-The reconciliation route returns `503` and writes a structured error log whenever a terminal lead or expired delivery lease requires operator attention. Connect a production error-monitoring integration or log drain and assign an owner before launch; runtime logs alone are not a notification channel.
+The reconciliation route returns `503` and writes a structured error log whenever a terminal lead or expired delivery lease requires operator attention. The separate `GET /api/internal/quotes/health/` endpoint requires `QUOTE_MONITOR_SECRET`, checks configuration and reads queue health without claiming, sending or purging leads. It returns `503` for terminal failures, expired leases, a due backlog older than five minutes or unavailable storage.
+
+The **Quote delivery health** GitHub workflow runs hourly at minute 17 and can be dispatched manually. Set repository variable `QUOTE_MONITOR_ORIGIN` to the approved production HTTPS origin and repository secret `QUOTE_MONITOR_SECRET` to the matching production-only value. Select an owner and enable failure notifications for that workflow in GitHub notification settings; a failed job is not proof that an inbox received an alert. GitHub schedules can be delayed, so use a dedicated monitoring service if a shorter detection target is required. See [launch readiness](docs/LAUNCH_READINESS.md) for activation and verification.
 
 If the quote pipeline is unhealthy after release:
 
