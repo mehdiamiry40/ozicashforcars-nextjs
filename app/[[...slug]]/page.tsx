@@ -55,19 +55,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 function structuredData(page: SitePage) {
+  const businessId = `${SITE.url}/#business`;
+  const pageId = `${absoluteUrl(page.path)}#webpage`;
   const business = {
-    "@type": ["LocalBusiness", "AutomotiveBusiness"],
-    "@id": `${SITE.url}/#business`,
-    name: SITE.legalName,
+    "@type": "Organization",
+    "@id": businessId,
+    name: SITE.name,
     url: SITE.url,
+    logo: absoluteUrl("/wp-content/uploads/2022/04/logo.png"),
     telephone: SITE.phoneDisplay,
     email: SITE.email,
-    priceRange: "$$",
-    areaServed: ["Brisbane", "Logan City", "Ipswich", "Gold Coast"],
-    openingHoursSpecification: [
-      { "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], opens: "08:00", closes: "17:00" },
-      { "@type": "OpeningHoursSpecification", dayOfWeek: "Saturday", opens: "08:00", closes: "12:00" },
-    ],
   };
   const breadcrumb = {
     "@type": "BreadcrumbList",
@@ -76,22 +73,43 @@ function structuredData(page: SitePage) {
       ...(page.path === "/" ? [] : [{ "@type": "ListItem", position: 2, name: page.heading, item: absoluteUrl(page.path) }]),
     ],
   };
-  const primary = page.kind === "article"
-    ? { "@type": "BlogPosting", headline: page.heading, description: page.description, mainEntityOfPage: absoluteUrl(page.path), author: { "@type": "Organization", name: SITE.name }, publisher: { "@id": `${SITE.url}/#business` } }
-    : { "@type": "Service", name: page.heading, description: page.description, provider: { "@id": `${SITE.url}/#business` }, areaServed: page.location || "Greater Brisbane" };
-
-  const faq = ["home", "service", "region", "location", "faq"].includes(page.kind)
-    ? {
-        "@type": "FAQPage",
-        mainEntity: [
-          { "@type": "Question", name: "How is a vehicle offer calculated?", acceptedAnswer: { "@type": "Answer", text: "Offers consider the make, model, age, condition, location, completeness and recoverable value of the vehicle." } },
-          { "@type": "Question", name: "Is standard vehicle towing included?", acceptedAnswer: { "@type": "Answer", text: "Standard pickup in covered service areas is included. Unusual access or recovery requirements should be disclosed before booking." } },
-          { "@type": "Question", name: "Do I have to accept a quote?", acceptedAnswer: { "@type": "Answer", text: "No. Vehicle quotes are free and there is no obligation to proceed." } },
-        ],
-      }
-    : null;
-
-  return { "@context": "https://schema.org", "@graph": [business, primary, breadcrumb, ...(faq ? [faq] : [])] };
+  const pageType = page.kind === "about" ? "AboutPage"
+    : page.kind === "contact" ? "ContactPage"
+      : ["blog", "vehicles", "utility"].includes(page.kind) ? "CollectionPage" : "WebPage";
+  const isService = ["service", "region", "location"].includes(page.kind);
+  const primaryEntityId = `${absoluteUrl(page.path)}#${page.kind === "article" ? "article" : "service"}`;
+  const webpage = {
+    "@type": pageType,
+    "@id": pageId,
+    url: absoluteUrl(page.path),
+    name: page.heading,
+    description: page.description,
+    inLanguage: "en-AU",
+    about: { "@id": businessId },
+    ...(page.kind === "article" || isService ? { mainEntity: { "@id": primaryEntityId } } : {}),
+  };
+  const article = page.kind === "article" ? {
+    "@type": "BlogPosting",
+    "@id": primaryEntityId,
+    headline: page.heading,
+    description: page.description,
+    mainEntityOfPage: { "@id": pageId },
+    author: { "@type": "Organization", name: SITE.name, url: absoluteUrl("/about-us/") },
+    publisher: { "@id": businessId },
+    ...(page.ogImage ? { image: absoluteUrl(page.ogImage) } : {}),
+    // Publication/review dates are omitted until authentic editorial dates are recorded.
+  } : null;
+  const service = isService ? {
+    "@type": "Service",
+    "@id": primaryEntityId,
+    name: page.heading,
+    description: page.description,
+    provider: { "@id": businessId },
+    mainEntityOfPage: { "@id": pageId },
+    // An enquiry page does not establish confirmed coverage for an unverified region.
+    ...(page.path === "/cash-for-cars-sunshine-coast/" ? {} : { areaServed: page.location || SITE.serviceArea }),
+  } : null;
+  return { "@context": "https://schema.org", "@graph": [business, webpage, breadcrumb, ...(article ? [article] : []), ...(service ? [service] : [])] };
 }
 
 export default async function SitePageRoute({ params }: PageProps) {

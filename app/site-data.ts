@@ -1,5 +1,7 @@
 import rawIndex from "../data/site-index.json";
 import { SITE } from "./site-config";
+import { ARTICLE_CONTENT } from "./article-content";
+import { SERVICE_CONTENT } from "./service-content";
 
 type RawPage = {
   path: string;
@@ -114,32 +116,25 @@ const SPECIAL_TITLES: Record<string, string> = {
   "/contact-us/": "Contact Ozi Cash for Cars Brisbane",
   "/frequently-asked-questions/": "Cash for Cars FAQs | Brisbane",
   "/privacy-policy/": "Privacy Policy | Ozi Cash for Cars",
-  "/testimonials/": "Customer Reviews | Ozi Cash for Cars",
+  "/testimonials/": "Reviews and Feedback | Ozi Cash for Cars",
   "/thank-you/": "Quote Request Received | Ozi Cash for Cars",
-  "/vehicles/": "Vehicles We Buy | Ozi Cash for Cars",
+  "/vehicles/": "Vehicle Enquiries | Ozi Cash for Cars",
   "/sitemap/": "Website Guide | Ozi Cash for Cars",
   "/useful-links/": "Vehicle Selling Resources | Queensland",
 };
 
-const SERVICE_NAMES: Record<string, string> = {
-  "cash-for-accident-cars": "Accident Cars",
-  "cash-for-damaged-cars": "Damaged Cars",
-  "cash-for-junk-cars": "Junk Cars",
-  "cash-for-old-cars": "Old Cars",
-  "cash-for-scrap-cars": "Scrap Cars",
-  "cash-for-trucks": "Trucks",
-  "cash-for-unwanted-cars": "Unwanted Cars",
-  "cash-for-used-cars": "Used Cars",
-  "car-removal-brisbane": "Car Removal Brisbane",
-  "car-recycling-brisbane": "Car Recycling Brisbane",
-  "free-car-removals": "Free Car Removal",
-  "junk-car-removals": "Junk Car Removal",
-  "old-car-removals": "Old Car Removal",
-  "scrap-car-removals": "Scrap Car Removal",
-  "sell-my-car": "Sell My Car Brisbane",
-  "unwanted-car-removals": "Unwanted Car Removal",
-  "unwanted-truck-removals": "Unwanted Truck Removal",
-  "used-car-removals": "Used Car Removal",
+const PAGE_DESCRIPTIONS: Record<string, string> = {
+  "/": "Request a Brisbane vehicle quote with your car's condition and pickup suburb. Review the offer, payment and towing terms before deciding to sell.",
+  "/about-us/": "Learn how Ozi Cash for Cars handles vehicle enquiries and arranged pickup, and find the team's contact details and service hours.",
+  "/blog/": "Practical car-selling guides covering vehicle details, offers, pickup preparation and Queensland safety-certificate questions.",
+  "/contact-us/": "Call, email or send a vehicle enquiry to Ozi Cash for Cars. Find contact hours and share the condition and pickup suburb for a quote.",
+  "/frequently-asked-questions/": "Answers about vehicle quotes, documents, towing, payment and pickup. Find what to confirm before agreeing to sell your car.",
+  "/privacy-policy/": "How Ozi Cash for Cars uses quote information, stores database records for 90 days and handles requests about your information.",
+  "/testimonials/": "Contact Ozi Cash for Cars with feedback about your experience and find questions to consider before arranging a vehicle pickup.",
+  "/thank-you/": "Your vehicle quote request has been received and is ready for review by the Ozi Cash for Cars team.",
+  "/vehicles/": "Explore vehicle enquiry options for cars, utes, vans, SUVs and light trucks. Describe condition and access so suitability can be confirmed.",
+  "/sitemap/": "Browse vehicle services, pickup area enquiries and customer information on the Ozi Cash for Cars website.",
+  "/useful-links/": "Find car-selling guides, vehicle services, pickup area enquiries and contact information for Ozi Cash for Cars.",
 };
 
 function titleCase(value: string) {
@@ -169,20 +164,18 @@ function trimTo(value: string, max: number) {
   return `${shortened.slice(0, shortened.lastIndexOf(" "))}…`;
 }
 
-function serviceName(pathname: string) {
-  const segment = lastSegment(pathname);
-  return SERVICE_NAMES[segment] ?? titleCase(segment.replace(/^cash-for-/, ""));
-}
 
 function modelPage(pathname: string, raw: RawPage): SitePage {
   if (pathname.startsWith("/blog/") && pathname !== "/blog/") {
-    const heading = trimTo(raw.title.split("|")[0], 72);
+    const article = ARTICLE_CONTENT[pathname];
+    if (!article) throw new Error(`Missing authored article content: ${pathname}`);
+    const heading = article.heading;
     return {
       path: pathname,
       kind: "article",
       title: trimTo(heading, 58),
       heading,
-      description: trimTo(raw.description, 155),
+      description: article.description,
       ogImage: raw.ogImage,
       noIndex: false,
       canonicalPath: pathname,
@@ -200,7 +193,7 @@ function modelPage(pathname: string, raw: RawPage): SitePage {
       title: trimTo(`Cash for Cars ${location} | Free Car Removal`, 58),
       heading: `Cash for Cars ${location}`,
       description: trimTo(
-        `Get a fast vehicle quote and free towing in ${location}. Ozi Cash for Cars collects cars, utes, vans and 4WDs across ${regionRule.region}.`,
+        `Enquire about a vehicle quote in ${location}. Share its condition and access details, then confirm pickup availability and towing terms.`,
         155,
       ),
       ogImage: raw.ogImage,
@@ -217,10 +210,10 @@ function modelPage(pathname: string, raw: RawPage): SitePage {
     return {
       path: pathname,
       kind: "region",
-      title: trimTo(`Cash for Cars ${hubName} | Free Removal`, 58),
+      title: trimTo(`Cash for Cars ${hubName} | Pickup Enquiries`, 58),
       heading: `Cash for Cars ${hubName}`,
       description: trimTo(
-        `Sell your vehicle in ${hubName} with a fast cash quote and free towing. We collect cars, utes, vans, 4WDs and light commercial vehicles.`,
+        `Request a vehicle quote for ${hubName}. Confirm collection availability for your suburb, access requirements and towing terms before booking.`,
         155,
       ),
       ogImage: raw.ogImage,
@@ -232,7 +225,9 @@ function modelPage(pathname: string, raw: RawPage): SitePage {
   }
 
   const kind = KIND_PATHS[pathname] ?? "service";
-  const heading = SPECIAL_TITLES[pathname]?.split("|")[0].trim() ?? serviceName(pathname);
+  const service = kind === "service" ? SERVICE_CONTENT[pathname] : undefined;
+  if (kind === "service" && !service) throw new Error(`Missing authored service content: ${pathname}`);
+  const heading = service?.heading ?? SPECIAL_TITLES[pathname]?.split("|")[0].trim() ?? titleCase(lastSegment(pathname));
   const title = SPECIAL_TITLES[pathname] ?? trimTo(`${heading} | Ozi Cash for Cars`, 58);
   const noIndex = kind === "thank-you" || kind === "utility";
 
@@ -241,17 +236,7 @@ function modelPage(pathname: string, raw: RawPage): SitePage {
     kind,
     title,
     heading,
-    description:
-      kind === "home"
-        ? `Sell your car in Brisbane with a fast quote, payment on pickup and free towing. We buy vehicles in any condition with offers up to ${SITE.maxOffer}.`
-        : kind === "thank-you"
-          ? "Your vehicle quote request has been received and is ready for review by the Ozi Cash for Cars team."
-          : kind === "privacy"
-            ? "How Ozi Cash for Cars collects, uses and protects information submitted through our vehicle quote service."
-            : trimTo(
-                `Get a clear vehicle quote, payment on pickup and free towing with ${heading}. Ozi Cash for Cars services Brisbane and surrounding areas.`,
-                155,
-              ),
+    description: service?.description ?? PAGE_DESCRIPTIONS[pathname],
     ogImage: raw.ogImage,
     noIndex,
     canonicalPath: pathname,
@@ -262,6 +247,7 @@ export const allPages = Object.entries(index.pages).map(([pathname, raw]) =>
   modelPage(pathname, raw),
 );
 
+// Preserve known legacy paths and existing suburb indexing policy; editorial changes do not select redirects.
 const pagesByPath = new Map(allPages.map((page) => [page.path, page]));
 
 export function getPage(pathname: string) {
@@ -288,5 +274,3 @@ export function staticParams() {
 export function absoluteUrl(pathname: string) {
   return new URL(pathname, SITE.url).href;
 }
-
-export const contentVersion = index.capturedAt;

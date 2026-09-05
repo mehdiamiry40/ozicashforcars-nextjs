@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { blogArticles, locationPagesForHub, SitePage } from "../site-data";
-import { REGION_LINKS, SERVICE_LINKS, SITE } from "../site-config";
+import { REGION_LINKS, SERVICE_GROUPS, SERVICE_LINKS, SITE } from "../site-config";
+import { ARTICLE_CONTENT } from "../article-content";
+import { GENERAL_FAQS, SERVICE_CONTENT, type QuestionAnswer } from "../service-content";
 import { QuoteForm } from "./QuoteForm";
 
 const processSteps = [
@@ -12,54 +14,23 @@ const processSteps = [
 
 const vehicleTypes = ["Cars", "Utes", "4WDs", "Vans", "Light trucks", "SUVs", "Non-runners", "Accident vehicles"];
 
-const articleGuides: Record<string, { intro: string; sections: Array<{ title: string; text: string }> }> = {
-  "/blog/sell-your-car-fast-and-easy-in-brisbane/": {
-    intro: "A faster sale starts with complete information, realistic expectations and a pickup plan that works for both sides.",
-    sections: [
-      { title: "Prepare the details buyers need", text: "Write down the make, model, build year, odometer reading and registration status. Photograph every side, the interior, the odometer and any damage. Accurate details reduce follow-up questions and make the initial quote more useful." },
-      { title: "Compare the full value of each offer", text: "Look beyond the headline amount. Confirm whether towing is included, when payment is made and what could change after inspection. Disclose missing wheels, locked steering or difficult access before booking." },
-      { title: "Make the handover easy", text: "Remove belongings and toll tags, locate your identification and ownership records, and keep keys ready. Agree on the final amount and collection window before the tow truck is dispatched." },
-    ],
-  },
-  "/blog/a-guide-to-understanding-cash-for-cars-brisbane/": {
-    intro: "Cash-for-cars services value vehicles for resale, parts and recyclable material, then arrange collection from the owner.",
-    sections: [
-      { title: "What affects a vehicle quote", text: "Make, model, age, condition, location, completeness and demand for reusable components all matter. Photos and an honest condition description help a buyer assess those factors before pickup." },
-      { title: "Questions to ask before accepting", text: "Confirm the final payment method, whether standard towing is included, who handles paperwork and which circumstances could change the quote. Ask for unclear terms to be explained before you commit." },
-      { title: "What happens at collection", text: "The collector checks the vehicle and your authority to sell it, completes the agreed paperwork and pays the confirmed amount. Do not hand over the vehicle until the payment and documents match what you agreed." },
-    ],
-  },
-  "/blog/how-to-get-cash-for-cars-in-brisbane-qld/": {
-    intro: "You can make a Brisbane vehicle quote more accurate by supplying the right details and checking the collection terms upfront.",
-    sections: [
-      { title: "Describe the vehicle clearly", text: "Include the exact model, year, kilometres and registration status. Note accident damage, mechanical faults, missing parts and whether the car rolls, steers and has keys." },
-      { title: "Explain the pickup location", text: "Provide the suburb and describe access to the vehicle. Low clearances, underground parking, steep driveways or missing wheels may require different recovery equipment." },
-      { title: "Confirm the deal before pickup", text: "Check the amount, towing arrangements, payment timing and required documents. Keep a written record of the agreed terms and do not sign blank or incomplete forms." },
-    ],
-  },
-  "/blog/selling-your-car-without-a-roadworthy-certificate/": {
-    intro: "Queensland safety-certificate requirements depend on the vehicle's registration status and who is buying it, so check the current rules before disposal.",
-    sections: [
-      { title: "Registered and unregistered sales differ", text: "Queensland guidance says a registered vehicle generally needs a current safety certificate before it is disposed of, except in specified situations such as disposal to a licensed motor dealer. An unregistered vehicle can be sold without one." },
-      { title: "Confirm which situation applies", text: "Tell the buyer whether the vehicle is registered and ask how the registration and plates will be handled. Verify the current requirements directly with Queensland Transport and Main Roads before the handover." },
-      { title: "Keep a clear paper trail", text: "Record the buyer and seller, date, vehicle identification number, agreed amount and registration status. Keep copies of completed documents and proof of payment." },
-    ],
-  },
-};
-
 function QuoteHero({ page }: { page: SitePage }) {
   const location = page.location ? ` in ${page.location}` : " in Brisbane";
+  const service = SERVICE_CONTENT[page.path];
+  const isSunshineCoast = page.path === "/cash-for-cars-sunshine-coast/";
   return (
     <section className="hero">
       <div className="shell hero__grid">
         <div className="hero__copy">
-          <span className="eyebrow">Local vehicle buying and free towing</span>
+          <span className="eyebrow">Vehicle quotes and arranged pickup</span>
           <h1>{page.heading}</h1>
           <p className="hero__lead">
-            Get a clear cash offer{location}, payment when we collect the vehicle and free standard towing. We buy vehicles in running or damaged condition.
+            {service?.intro ?? (isSunshineCoast
+              ? "Enquire about a Sunshine Coast pickup before making a booking. Share your suburb, vehicle condition and access details so the team can confirm whether collection is available for your location."
+              : `Request a vehicle offer${location}. Tell us the condition and pickup details, then confirm the amount, payment method and towing arrangements before deciding.`)}
           </p>
           <ul className="check-list" aria-label="Service benefits">
-            <li>Offers up to {SITE.maxOffer}, based on vehicle value</li>
+            <li>Offers based on the vehicle and collection details</li>
             <li>No roadworthy certificate required for an initial quote</li>
             <li>Cars, utes, vans, 4WDs and light trucks</li>
             <li>No obligation to accept</li>
@@ -113,10 +84,10 @@ function ProcessSection() {
 
 function ServicesSection() {
   return (
-    <section className="section">
+    <section className="section" id="services">
       <div className="shell">
         <div className="section-heading">
-          <span className="eyebrow">Vehicles in almost any condition</span>
+          <span className="eyebrow">Find the guidance for your vehicle</span>
           <h2>What we can quote</h2>
           <p>Age, condition and registration status are considered as part of the offer.</p>
         </div>
@@ -125,10 +96,14 @@ function ServicesSection() {
             <Link className="service-card" href={service.href} key={service.href}>
               <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
               <h3>{service.label}</h3>
-              <p>Get the details, eligibility information and pickup process.</p>
+              <p>{SERVICE_CONTENT[service.href].description}</p>
               <strong>View service →</strong>
             </Link>
           ))}
+        </div>
+        <div className="centered-cta"><h3>Browse all vehicle and collection services</h3><p>Choose the topic that matches the car, truck or pickup you need to discuss.</p></div>
+        <div className="utility-grid">
+          {SERVICE_GROUPS.map((group) => <section key={group.title}><h3>{group.title}</h3>{group.links.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}</section>)}
         </div>
       </div>
     </section>
@@ -136,17 +111,17 @@ function ServicesSection() {
 }
 
 function AreaSection({ page }: { page: SitePage }) {
-  const locations = page.kind === "region" ? locationPagesForHub(page.path).slice(0, 18) : [];
+  const locations = page.kind === "region" ? locationPagesForHub(page.path) : [];
   return (
-    <section className="section section--dark">
+    <section className="section section--dark" id="service-areas">
       <div className="shell area-layout">
         <div>
           <span className="eyebrow">Mobile pickup service</span>
-          <h2>{page.kind === "location" ? `Vehicle pickup in ${page.location}` : "Serving greater Brisbane"}</h2>
+          <h2>{page.location ? `Vehicle pickup enquiries in ${page.location}` : "Pickup enquiries by area"}</h2>
           <p>
-            {page.kind === "location"
-              ? `${page.location} is covered through our ${page.region} pickup network. Tell us where the vehicle is parked and whether a tow truck can access it safely.`
-              : `We arrange pickups throughout ${SITE.serviceArea}. Availability depends on distance, vehicle access and tow-truck scheduling.`}
+            {page.location
+              ? `For a pickup in ${page.location}, tell us the exact suburb and whether a collection truck can reach the vehicle safely. Confirm availability and towing terms for your location before accepting an offer.`
+              : `We arrange pickups throughout ${SITE.serviceArea}. Availability depends on distance, vehicle access and tow-truck scheduling. Sunshine Coast enquiries require confirmation for the specific suburb.`}
           </p>
           <a className="secondary-button secondary-button--light" href={SITE.phoneHref}>Check pickup availability</a>
         </div>
@@ -160,24 +135,17 @@ function AreaSection({ page }: { page: SitePage }) {
   );
 }
 
-function FaqSection({ page }: { page: SitePage }) {
-  const place = page.location ?? "Brisbane";
-  const faqs = [
-    ["How is the offer calculated?", "The vehicle's make, model, age, condition, location, completeness and recoverable value all affect the offer."],
-    ["Is towing really free?", `Standard pickup in covered parts of ${place} is included. Tell us about difficult access, missing wheels or unusual recovery requirements before booking.`],
-    ["What documents should I prepare?", "You will normally need photo identification and proof that you are authorised to sell the vehicle. We confirm the exact requirements before pickup."],
-    ["Do I have to accept the quote?", "No. Quotes are free and there is no obligation to proceed."],
-  ];
+function FaqSection({ faqs = GENERAL_FAQS.slice(0, 4), heading = "Common questions" }: { faqs?: QuestionAnswer[]; heading?: string }) {
   return (
     <section className="section">
       <div className="shell faq-layout">
         <div className="section-heading section-heading--left">
           <span className="eyebrow">Helpful details</span>
-          <h2>Common questions</h2>
+          <h2>{heading}</h2>
           <p>Call us if your vehicle or pickup situation is unusual.</p>
         </div>
         <div className="faq-list">
-          {faqs.map(([question, answer]) => (
+          {faqs.map(({ question, answer }) => (
             <details key={question}><summary>{question}</summary><p>{answer}</p></details>
           ))}
         </div>
@@ -186,7 +154,44 @@ function FaqSection({ page }: { page: SitePage }) {
   );
 }
 
+function ServicePage({ page }: { page: SitePage }) {
+  const content = SERVICE_CONTENT[page.path];
+  if (!content) throw new Error(`Missing authored service content: ${page.path}`);
+  const guide = blogArticles.find((article) => article.path === content.relatedGuide);
+  return (
+    <>
+      <QuoteHero page={page} />
+      <section className="section section--muted"><div className="shell card-grid">
+        {content.sections.map((section) => <section className="guide-card" key={section.title}><h2>{section.title}</h2><p>{section.text}</p></section>)}
+      </div></section>
+      <FaqSection faqs={content.faqs} heading="Questions about this service" />
+      {guide && <section className="section section--muted"><div className="shell"><h2>Before you book</h2><p>{guide.description}</p><Link href={guide.path}>{guide.heading} →</Link><p><Link href="/#services">Compare other vehicle services</Link> · <Link href="/frequently-asked-questions/">Read all common questions</Link></p></div></section>}
+      <AreaSection page={page} />
+    </>
+  );
+}
+
+function FaqPage({ page }: { page: SitePage }) {
+  return (
+    <>
+      <section className="page-hero"><div className="shell page-hero__inner"><span className="eyebrow">Before you sell or book a pickup</span><h1>{page.heading}</h1><p>{page.description}</p></div></section>
+      <FaqSection faqs={GENERAL_FAQS} heading="Vehicle quotes, documents and collection" />
+      <section className="section section--muted"><div className="shell contact-layout"><div><h2>Discuss your vehicle</h2><p>Include the condition and pickup suburb so the team can assess your enquiry.</p><p>For registration questions, read the <Link href="/blog/selling-your-car-without-a-roadworthy-certificate/">Queensland safety-certificate guide</Link> and check the linked official guidance.</p><a href={SITE.phoneHref}>Call {SITE.phoneDisplay}</a></div><div id="quote"><QuoteForm sourcePath={page.path} /></div></div></section>
+    </>
+  );
+}
+
 function StandardPage({ page }: { page: SitePage }) {
+  if (page.path === "/cash-for-cars-sunshine-coast/") {
+    return (
+      <>
+        <QuoteHero page={page} />
+        <section className="section"><div className="shell prose-grid"><section><h2>Check your suburb before booking</h2><p>Provide the Sunshine Coast suburb where the vehicle is parked and any preferred collection dates. Wait for the team to confirm whether it can arrange a pickup for that location.</p></section><section><h2>Confirm the full collection terms</h2><p>Describe the vehicle condition, access restrictions and whether it rolls and steers. Ask for the vehicle offer, towing terms and any unusual recovery costs together before deciding.</p></section></div></section>
+        <AreaSection page={page} />
+        <FaqSection faqs={GENERAL_FAQS.filter(({ question }) => ["How is the offer calculated?", "Do I have to accept the quote?", "When will the vehicle be collected?"].includes(question))} />
+      </>
+    );
+  }
   return (
     <>
       <QuoteHero page={page} />
@@ -194,13 +199,14 @@ function StandardPage({ page }: { page: SitePage }) {
       <ProcessSection />
       <ServicesSection />
       <AreaSection page={page} />
-      <FaqSection page={page} />
+      <FaqSection />
     </>
   );
 }
 
 function ArticlePage({ page }: { page: SitePage }) {
-  const guide = articleGuides[page.path] ?? articleGuides["/blog/sell-your-car-fast-and-easy-in-brisbane/"];
+  const guide = ARTICLE_CONTENT[page.path];
+  if (!guide) throw new Error(`Missing authored article content: ${page.path}`);
   return (
     <>
       <section className="page-hero page-hero--article">
@@ -212,6 +218,7 @@ function ArticlePage({ page }: { page: SitePage }) {
       </section>
       <article className="article shell article-layout">
         <div className="article__body">
+          <p>By <Link href="/about-us/">{SITE.name}</Link></p>
           <p className="article__intro">{guide.intro}</p>
           {guide.sections.map((section) => <section key={section.title}><h2>{section.title}</h2><p>{section.text}</p></section>)}
           {page.path.includes("roadworthy-certificate") && <p className="source-note">Rules can change. Read the current <a href="https://www.qld.gov.au/transport/registration/roadworthy">Queensland Government safety certificate guidance</a> or call Transport and Main Roads on 13 23 80.</p>}
@@ -255,14 +262,14 @@ function PrivacyPage() {
   return (
     <article className="legal shell">
       <h1>Privacy policy</h1>
-      <p className="legal__updated">Last updated: 4 August 2026</p>
+      <p className="legal__updated">Last updated: 5 September 2026</p>
       <p>Ozi Cash for Cars collects the information you submit so we can assess your vehicle, contact you about a quote and arrange pickup if you proceed.</p>
       <h2>Information we collect</h2>
       <p>Quote forms may collect your name, phone number, email address, suburb, vehicle details and information about its condition. Our hosting provider may also process standard security and request logs.</p>
       <h2>How we use it</h2>
       <p>We use submitted information only to provide and administer the requested vehicle-buying service, prevent misuse and meet record-keeping obligations.</p>
       <h2>Sharing and storage</h2>
-      <p>Information may be handled by service providers used for website hosting and email delivery. We do not sell quote-request information. We retain records only as long as reasonably needed for the service, security and legal obligations.</p>
+      <p>Information is handled by service providers used for website hosting, database storage and email delivery. We do not sell quote-request information. The website schedules quote details in its database for deletion after 90 days. This database policy does not automatically delete copies in email inboxes, delivery-provider systems, security logs or records created if you proceed with a sale. Contact us to ask about those records or request deletion; any records that must be retained for legal obligations may be kept longer.</p>
       <h2>Your choices</h2>
       <p>You may ask to access or correct your information, or request deletion where we are not required to retain it. Contact <a href={`mailto:${SITE.email}`}>{SITE.email}</a> or call <a href={SITE.phoneHref}>{SITE.phoneDisplay}</a>.</p>
     </article>
@@ -316,19 +323,14 @@ function ContactPage({ page }: { page: SitePage }) {
 }
 
 function TestimonialsPage() {
-  const reviews = [
-    ["Quick and easy pickup", "The process was clear and the collection was arranged without fuss.", "Brisbane customer"],
-    ["Straightforward service", "The team confirmed the details, arrived in the agreed window and completed the handover promptly.", "Logan customer"],
-    ["Helpful on the phone", "My questions were answered before I booked, so I knew what to prepare for pickup.", "Gold Coast customer"],
-  ];
   return (
-    <section className="section page-listing"><div className="shell"><div className="section-heading"><span className="eyebrow">Customer experiences</span><h1>What customers value</h1><p>Clear communication, practical pickup times and a simple handover.</p></div><div className="review-grid">{reviews.map(([title, text, person]) => <blockquote key={title}><span aria-label="5 out of 5 stars">★★★★★</span><h2>{title}</h2><p>“{text}”</p><cite>{person}</cite></blockquote>)}</div></div></section>
+    <section className="section page-listing"><div className="shell"><div className="section-heading section-heading--left"><span className="eyebrow">Customer feedback</span><h1>Customer reviews and feedback</h1><p>No customer testimonials are currently published on this page.</p></div><div className="prose-grid"><section><h2>Tell us about your experience</h2><p>If you have used the service, you can share feedback or raise a concern directly with the team. Include enough information to identify your enquiry and explain what you would like us to review.</p><p><a href={`mailto:${SITE.email}`}>Email {SITE.email}</a> or <a href={SITE.phoneHref}>call {SITE.phoneDisplay}</a>.</p></section><section className="fact-card"><h2>Considering a vehicle quote?</h2><p>Review the service details, ask about your pickup requirements and confirm the offer before deciding.</p><Link href="/frequently-asked-questions/">Questions to ask before booking</Link><p><Link href="/about-us/">About Ozi Cash for Cars</Link></p></section></div></div></section>
   );
 }
 
 function VehiclesPage() {
   return (
-    <><section className="page-hero"><div className="shell page-hero__inner"><span className="eyebrow">Most makes, models and conditions</span><h1>Vehicles we buy</h1><p>Request a quote for passenger, commercial, damaged and non-running vehicles.</p></div></section><section className="section"><div className="shell"><ul className="vehicle-grid">{vehicleTypes.map((vehicle) => <li key={vehicle}><span aria-hidden="true">✓</span>{vehicle}</li>)}</ul><div className="centered-cta"><p>Not sure whether your vehicle qualifies? Describe it in the quote form and we will let you know.</p><Link className="primary-button" href="/sell-my-car/#quote">Request a quote</Link></div></div></section></>
+    <><section className="page-hero"><div className="shell page-hero__inner"><span className="eyebrow">Vehicle enquiry guide</span><h1>Vehicles you can enquire about</h1><p>Request a quote for passenger, commercial, damaged and non-running vehicles.</p></div></section><section className="section"><div className="shell"><ul className="vehicle-grid">{vehicleTypes.map((vehicle) => <li key={vehicle}><span aria-hidden="true">✓</span>{vehicle}</li>)}</ul><div className="centered-cta"><p>Not sure whether your vehicle qualifies? Describe it in the quote form and we will let you know.</p><Link className="primary-button" href="/sell-my-car/#quote">Request a quote</Link></div></div></section></>
   );
 }
 
@@ -339,6 +341,8 @@ function UtilityPage({ page }: { page: SitePage }) {
 }
 
 export function PageContent({ page }: { page: SitePage }) {
+  if (page.kind === "service") return <ServicePage page={page} />;
+  if (page.kind === "faq") return <FaqPage page={page} />;
   if (page.kind === "article") return <ArticlePage page={page} />;
   if (page.kind === "blog") return <BlogPage />;
   if (page.kind === "privacy") return <PrivacyPage />;

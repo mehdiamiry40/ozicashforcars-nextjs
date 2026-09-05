@@ -189,7 +189,7 @@ export async function reconcileDueQuotes(limit = RECONCILE_BATCH_SIZE) {
       outcomes.push(await deliverClaimedLead(lead));
       if (index < leads.length - 1) await wait(RECONCILE_PACE_MS);
     }
-    const purged = await purgeExpiredQuoteData();
+    const purged = await purgeExpiredQuoteData(environment);
     const backlog = await getQuoteQueueHealth(environment);
     return {
       skipped: false,

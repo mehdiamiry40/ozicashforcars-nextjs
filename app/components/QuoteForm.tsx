@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
@@ -36,26 +35,39 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
   const router = useRouter();
   const [state, setState] = useState<SubmitState>("idle");
   const [message, setMessage] = useState("");
+  const [ready, setReady] = useState(false);
   const startedAt = useRef(0);
   const submissionId = useRef<string | null>(null);
 
   useEffect(() => {
-    startedAt.current = Date.now();
+    // Static HTML must stay non-submitting until the JSON handler and browser
+    // request identity are available. A build-time identity would be shared.
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        submissionId.current = crypto.randomUUID();
+        startedAt.current = Date.now();
+        setReady(true);
+      } catch {
+        // Keep the server-rendered phone alternative available.
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   async function submitQuote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!ready || state === "submitting") return;
     setState("submitting");
     setMessage("");
 
     const form = event.currentTarget;
     const formData = new FormData(form);
     const payload = Object.fromEntries(formData.entries());
-    if (!submissionId.current) submissionId.current = crypto.randomUUID();
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), CLIENT_REQUEST_TIMEOUT_MS);
 
     try {
+      if (!submissionId.current) submissionId.current = crypto.randomUUID();
       const response = await fetch("/api/quote/", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -86,23 +98,24 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
   return (
     <form
       className="quote-form"
+      method="post"
+      action="/api/quote/"
       onSubmit={submitQuote}
       aria-labelledby="quote-form-title"
       aria-busy={state === "submitting"}
     >
-      <Image
-        className="quote-form__ribbon"
-        src="/wp-content/uploads/2022/04/QuickandFree.png"
-        width={230}
-        height={70}
-        alt="Quick and easy — satisfaction guaranteed"
-      />
       <div className="quote-form__heading">
         <span className="eyebrow">Free, no-obligation quote</span>
         <h2 id="quote-form-title">Tell us about your vehicle</h2>
         <p>Required fields are marked with an asterisk.</p>
       </div>
-
+      {!ready && (
+        <p id="quote-availability" role="status">
+          Online quotes need JavaScript to finish loading. You can request a quote by calling{" "}
+          <a href={SITE.phoneHref}>{SITE.phoneDisplay}</a>.
+        </p>
+      )}
+      <fieldset className="quote-form__fields" disabled={!ready || state === "submitting"} aria-label="Vehicle quote details">
       <div className="field-grid">
         <div className="field">
           <label htmlFor="quote-name">Name <span aria-hidden="true">*</span></label>
@@ -143,6 +156,7 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
       <button className="primary-button quote-form__submit" type="submit" disabled={state === "submitting"}>
         {state === "submitting" ? "Sending…" : "Get my free quote"}
       </button>
+      </fieldset>
       <p className={`form-status${state === "error" ? " form-status--error" : ""}`} role="status" aria-live="polite">
         {message}
       </p>

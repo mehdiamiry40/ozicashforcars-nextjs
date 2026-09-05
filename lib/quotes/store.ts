@@ -312,11 +312,11 @@ export async function markQuoteDeliveryFailed(
   return { updated: rows.length === 1, terminal };
 }
 
-export async function purgeExpiredQuoteData() {
+export async function purgeExpiredQuoteData(environment: string) {
   const sql = getQuoteSql();
   const [leadRows, bucketRows] = (await sql.transaction((tx) => [
-    tx`DELETE FROM quote_lead WHERE expires_at < now() RETURNING submission_id`,
-    tx`DELETE FROM quote_rate_bucket WHERE expires_at < now() - interval '1 day' RETURNING subject_hash`,
+    tx`DELETE FROM quote_lead WHERE environment = ${environment} AND expires_at < now() RETURNING submission_id`,
+    tx`DELETE FROM quote_rate_bucket WHERE environment = ${environment} AND expires_at < now() - interval '1 day' RETURNING subject_hash`,
   ])) as Record<string, unknown>[][];
   return { leads: leadRows.length, buckets: bucketRows.length };
 }
