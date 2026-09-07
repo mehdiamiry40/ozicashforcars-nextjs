@@ -33,6 +33,7 @@ export type QuoteInput = {
   suburb: string;
   vehicle: string;
   condition: string;
+  expectedPrice: string;
   sourcePath: string;
 };
 
@@ -71,6 +72,7 @@ function payloadFingerprint(quote: QuoteInput) {
       suburb: quote.suburb,
       vehicle: quote.vehicle,
       condition: quote.condition,
+      expectedPrice: quote.expectedPrice,
       sourcePath: quote.sourcePath,
     }))
     .digest("hex");

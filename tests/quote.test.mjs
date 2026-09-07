@@ -40,6 +40,7 @@ function quotePayload(vehicle = "2012 Toyota Corolla") {
     suburb: "Brisbane",
     vehicle,
     condition: "Running",
+    expectedPrice: "3500",
     consent: "yes",
     company: "",
     sourcePath: "/sell-my-car/",
@@ -103,6 +104,24 @@ test("a valid quote reaches the delivery boundary", async () => {
   const response = await post(quotePayload());
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true, message: "Your quote request has been sent." });
+});
+
+test("an expected price is optional and accepts the shapes visitors type", async () => {
+  for (const expectedPrice of ["", "3500", "$3,500", "3 500", "3500.50", undefined]) {
+    const response = await post({ ...quotePayload(), expectedPrice });
+    assert.equal(response.status, 200, `expected price ${JSON.stringify(expectedPrice)} was rejected`);
+    assert.equal((await response.json()).ok, true);
+  }
+});
+
+test("an expected price that is not an amount is refused with correctable guidance", async () => {
+  for (const expectedPrice of ["best offer", "-500", "12345678", "3500.555", "35e3"]) {
+    const response = await post({ ...quotePayload(), expectedPrice });
+    assert.equal(response.status, 400, `expected price ${JSON.stringify(expectedPrice)} was accepted`);
+    const result = await response.json();
+    assert.equal(result.ok, false);
+    assert.match(result.message, /expected price as a dollar amount/);
+  }
 });
 
 test("a blank timeout setting uses the safe default", async () => {

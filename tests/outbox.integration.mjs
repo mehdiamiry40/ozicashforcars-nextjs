@@ -53,6 +53,7 @@ function quotePayload(overrides = {}) {
     suburb: "Brisbane",
     vehicle: "2015 Toyota Corolla",
     condition: "Synthetic integration test",
+    expectedPrice: "$3,500",
     consent: "yes",
     company: "",
     sourcePath: "/verification/outbox/",
@@ -100,7 +101,7 @@ async function databaseSnapshot() {
 
 async function storedLead(submissionId) {
   const rows = await sql`
-    SELECT status, attempt_count, last_error_code, provider_message_id
+    SELECT status, attempt_count, last_error_code, provider_message_id, expected_price
       FROM quote_lead
      WHERE environment = ${environment}
        AND submission_id = ${submissionId}::uuid
@@ -176,6 +177,7 @@ test("concurrent identical submissions create one lead, budget charge and delive
   const lead = await storedLead(payload.submissionId);
   assert.equal(lead.status, "sent");
   assert.equal(lead.attempt_count, 1);
+  assert.equal(lead.expected_price, "3500");
   const counts = await sql`
     SELECT
       (SELECT count(*)::int FROM quote_lead WHERE environment = ${environment}) AS leads,
