@@ -38,6 +38,7 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
   const [ready, setReady] = useState(false);
   const startedAt = useRef(0);
   const submissionId = useRef<string | null>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     // Static HTML must stay non-submitting until the JSON handler and browser
@@ -53,6 +54,13 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    // Disabling the fieldset during a submission drops focus to the document.
+    // Move it to the failure message so a keyboard visitor lands on the reason
+    // and the retry button instead of the top of the page.
+    if (state === "error") statusRef.current?.focus();
+  }, [state, message]);
 
   async function submitQuote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -141,7 +149,9 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
             inputMode="decimal"
             autoComplete="off"
             maxLength={20}
-            pattern="\s*\$?\s*\d{1,3}([ ,]?\d{3})*(\.\d{1,2})?\s*"
+            // The browser must accept exactly what the endpoint accepts: up to
+            // seven digits, optionally grouped, with optional cents.
+            pattern="\s*\$?\s*(\d{1,7}|\d{1,3}[ ,]\d{3}|\d[ ,]\d{3}[ ,]\d{3})(\.\d{1,2})?\s*"
             title="Enter an amount in dollars, for example 3500"
             placeholder="Example: 3500"
           />
@@ -166,7 +176,13 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
         {state === "submitting" ? "Sending…" : "Get my free quote"}
       </button>
       </fieldset>
-      <p className={`form-status${state === "error" ? " form-status--error" : ""}`} role="status" aria-live="polite">
+      <p
+        ref={statusRef}
+        tabIndex={-1}
+        className={`form-status${state === "error" ? " form-status--error" : ""}`}
+        role="status"
+        aria-live="polite"
+      >
         {message}
       </p>
     </form>

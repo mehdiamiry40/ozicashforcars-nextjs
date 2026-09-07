@@ -1,5 +1,10 @@
+import { appendFileSync } from "node:fs";
+
 const originalFetch = globalThis.fetch;
 const attemptsByKey = new Map();
+// Set only by a test that needs to read what the operator would receive; the
+// mock stays silent when the path is absent.
+const deliveredLog = process.env.QUOTE_TEST_DELIVERED_FILE?.trim();
 
 globalThis.fetch = async (input, init = {}) => {
   const url = typeof input === "string" || input instanceof URL ? String(input) : input.url;
@@ -11,6 +16,7 @@ globalThis.fetch = async (input, init = {}) => {
   if (!idempotencyKey?.startsWith("quote/")) {
     return Response.json({ message: "missing idempotency key" }, { status: 400 });
   }
+  if (deliveredLog) appendFileSync(deliveredLog, `${JSON.stringify(payload)}\n`);
   const attempt = (attemptsByKey.get(idempotencyKey) || 0) + 1;
   attemptsByKey.set(idempotencyKey, attempt);
 

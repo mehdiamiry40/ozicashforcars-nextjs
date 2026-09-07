@@ -1,13 +1,26 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
 
 const root = new URL("../", import.meta.url);
+const deliveredDirectory = mkdtempSync(path.join(tmpdir(), "ozi-quote-delivered-"));
+const deliveredFile = path.join(deliveredDirectory, "delivered.jsonl");
 let server;
 let base;
+
+function deliveredEmails() {
+  try {
+    return readFileSync(deliveredFile, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));
+  } catch {
+    return [];
+  }
+}
 
 async function freePort() {
   const probe = createServer();
@@ -79,6 +92,7 @@ before(async () => {
         QUOTE_FROM_EMAIL: "Ozi Quotes <quotes@example.com>",
         QUOTE_TO_EMAIL: "contact@example.com",
         QUOTE_EMAIL_TIMEOUT_MS: "",
+        QUOTE_TEST_DELIVERED_FILE: deliveredFile,
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -87,9 +101,14 @@ before(async () => {
 });
 
 after(async () => {
-  if (!server || server.exitCode !== null) return;
-  server.kill("SIGTERM");
-  await once(server, "exit");
+  try {
+    if (server && server.exitCode === null) {
+      server.kill("SIGTERM");
+      await once(server, "exit");
+    }
+  } finally {
+    rmSync(deliveredDirectory, { recursive: true, force: true });
+  }
 });
 
 test("non-object JSON is rejected without a server error", async () => {
@@ -111,6 +130,20 @@ test("an expected price is optional and accepts the shapes visitors type", async
     const response = await post({ ...quotePayload(), expectedPrice });
     assert.equal(response.status, 200, `expected price ${JSON.stringify(expectedPrice)} was rejected`);
     assert.equal((await response.json()).ok, true);
+  }
+});
+
+test("the operator receives a complete currency amount, cents included", async () => {
+  for (const [submitted, expected] of [["$3,500.50", "A$3,500.50"], ["3500", "A$3,500"], ["0.05", "A$0.05"]]) {
+    const vehicle = `Currency check ${crypto.randomUUID()}`;
+    const response = await post({ ...quotePayload(vehicle), expectedPrice: submitted });
+    assert.equal(response.status, 200, `${submitted} was rejected`);
+    const delivered = deliveredEmails().find((email) => email.subject.includes(vehicle));
+    assert.ok(delivered, `${submitted} never reached the delivery provider`);
+    assert.ok(
+      delivered.text.split("\n").includes(`Expected price: ${expected}`),
+      `${submitted} was delivered as ${JSON.stringify(delivered.text.match(/^Expected price: .*$/m)?.[0])}`,
+    );
   }
 });
 

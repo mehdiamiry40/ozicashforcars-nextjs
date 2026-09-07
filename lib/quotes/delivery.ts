@@ -40,9 +40,12 @@ function senderAddress() {
 
 function formatExpectedPrice(value: string) {
   const amount = Number(value);
-  return value && Number.isFinite(amount)
-    ? `A$${amount.toLocaleString("en-AU", { maximumFractionDigits: 2 })}`
-    : "Not provided";
+  if (!value || !Number.isFinite(amount)) return "Not provided";
+  // A cents amount must reach the operator as "A$3,500.50", never "A$3,500.5".
+  return `A$${amount.toLocaleString("en-AU", {
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function isTimeoutError(error: unknown) {
