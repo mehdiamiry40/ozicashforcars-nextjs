@@ -4,7 +4,6 @@ async function fillQuote(page, vehicle = '2012 Toyota Corolla') {
   await expect(page.locator('#quote-name')).toBeEnabled();
   await page.locator('#quote-name').fill('Synthetic Browser Test');
   await page.locator('#quote-phone').fill('0400000000');
-  await page.locator('#quote-email').fill('synthetic@example.com');
   await page.locator('#quote-suburb').fill('Brisbane');
   await page.locator('#quote-vehicle').fill(vehicle);
   await page.locator('#quote-expected-price').fill('3500');
