@@ -9,6 +9,11 @@ import {
 } from "../../../lib/quotes/service";
 import { isQuoteOutboxEnabled } from "../../../lib/quotes/store";
 
+// Long enough for a durable accept plus a provider call bounded at 8 seconds,
+// and past the browser's own 12-second abort so a slow send still records its
+// delivery state instead of being killed mid-write and left for lease expiry.
+export const maxDuration = 20;
+
 type QuotePayload = {
   name?: unknown;
   phone?: unknown;
