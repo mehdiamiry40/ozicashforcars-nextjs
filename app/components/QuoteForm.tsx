@@ -138,6 +138,19 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
           <input id="quote-vehicle" name="vehicle" required maxLength={160} placeholder="Example: 2012 Toyota Corolla" />
         </div>
         <div className="field field--wide">
+          <label htmlFor="quote-expected-price">Expected price (AUD)</label>
+          <input
+            id="quote-expected-price"
+            name="expectedPrice"
+            inputMode="decimal"
+            autoComplete="off"
+            maxLength={20}
+            pattern="\s*\$?\s*\d{1,3}([ ,]?\d{3})*(\.\d{1,2})?\s*"
+            title="Enter an amount in dollars, for example 3500"
+            placeholder="Example: 3500"
+          />
+        </div>
+        <div className="field field--wide">
           <label htmlFor="quote-condition">Vehicle condition</label>
           <textarea id="quote-condition" name="condition" rows={3} maxLength={1200} placeholder="Running condition, damage, missing parts or access notes" />
         </div>

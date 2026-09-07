@@ -20,6 +20,7 @@ export type QuoteLeadInput = {
   suburb: string;
   vehicle: string;
   condition: string;
+  expectedPrice: string;
   sourcePath: string;
   consentVersion: string;
   consentedAt: Date;
@@ -46,6 +47,7 @@ export type StoredQuoteLead = {
   suburb: string;
   vehicle: string;
   condition: string;
+  expectedPrice: string;
   sourcePath: string;
   attemptCount: number;
   leaseToken: string;
@@ -95,6 +97,7 @@ function parseStoredLead(row: Record<string, unknown>): StoredQuoteLead {
     suburb: String(row.suburb),
     vehicle: String(row.vehicle),
     condition: row.vehicle_condition ? String(row.vehicle_condition) : "",
+    expectedPrice: row.expected_price ? String(row.expected_price) : "",
     sourcePath: String(row.source_path),
     attemptCount: Number(row.attempt_count),
     leaseToken: String(row.lease_token),
@@ -119,6 +122,7 @@ export async function acceptQuoteLead(
         ${lead.suburb},
         ${lead.vehicle},
         ${lead.condition},
+        ${lead.expectedPrice},
         ${lead.sourcePath},
         ${lead.consentVersion},
         ${lead.consentedAt.toISOString()}::timestamptz,

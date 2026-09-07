@@ -265,7 +265,7 @@ function PrivacyPage() {
       <p className="legal__updated">Last updated: 5 September 2026</p>
       <p>Ozi Cash for Cars collects the information you submit so we can assess your vehicle, contact you about a quote and arrange pickup if you proceed.</p>
       <h2>Information we collect</h2>
-      <p>Quote forms may collect your name, phone number, email address, suburb, vehicle details and information about its condition. Our hosting provider may also process standard security and request logs.</p>
+      <p>Quote forms may collect your name, phone number, email address, suburb, vehicle details, information about its condition and any price you expect. Our hosting provider may also process standard security and request logs.</p>
       <h2>How we use it</h2>
       <p>We use submitted information only to provide and administer the requested vehicle-buying service, prevent misuse and meet record-keeping obligations.</p>
       <h2>Sharing and storage</h2>

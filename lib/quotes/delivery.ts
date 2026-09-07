@@ -11,7 +11,16 @@ export type QuoteDeliveryResult =
 
 type QuoteEmailLead = Pick<
   StoredQuoteLead,
-  "environment" | "submissionId" | "name" | "phone" | "email" | "suburb" | "vehicle" | "condition" | "sourcePath"
+  | "environment"
+  | "submissionId"
+  | "name"
+  | "phone"
+  | "email"
+  | "suburb"
+  | "vehicle"
+  | "condition"
+  | "expectedPrice"
+  | "sourcePath"
 >;
 
 function emailTimeoutMs() {
@@ -27,6 +36,13 @@ function senderAddress() {
   if (configured) return configured;
   const domain = process.env.RESEND_EMAIL_DOMAIN?.trim();
   return domain && /^[a-z0-9.-]+$/i.test(domain) ? `Ozi Quotes <quotes@${domain}>` : "";
+}
+
+function formatExpectedPrice(value: string) {
+  const amount = Number(value);
+  return value && Number.isFinite(amount)
+    ? `A$${amount.toLocaleString("en-AU", { maximumFractionDigits: 2 })}`
+    : "Not provided";
 }
 
 function isTimeoutError(error: unknown) {
@@ -63,6 +79,7 @@ export async function sendQuoteEmail(lead: QuoteEmailLead): Promise<QuoteDeliver
           `Suburb: ${lead.suburb}`,
           `Vehicle: ${lead.vehicle}`,
           `Condition: ${lead.condition || "Not provided"}`,
+          `Expected price: ${formatExpectedPrice(lead.expectedPrice)}`,
           `Source: ${lead.sourcePath}`,
           `Reference: ${lead.submissionId}`,
         ].join("\n"),

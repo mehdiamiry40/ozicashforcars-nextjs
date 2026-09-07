@@ -7,6 +7,7 @@ async function fillQuote(page, vehicle = '2012 Toyota Corolla') {
   await page.locator('#quote-email').fill('synthetic@example.com');
   await page.locator('#quote-suburb').fill('Brisbane');
   await page.locator('#quote-vehicle').fill(vehicle);
+  await page.locator('#quote-expected-price').fill('3500');
   await page.locator('#quote-consent').check();
 }
 
@@ -69,6 +70,7 @@ test('a retry preserves its identity after an ambiguous failure', async ({ page 
   expect(payloads).toHaveLength(2);
   expect(payloads[1].submissionId).toEqual(payloads[0].submissionId);
   expect(payloads[0].submissionId).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(payloads[0].expectedPrice).toBe('3500');
 });
 
 test('a provider failure stays on the form with a useful phone alternative', async ({ page }) => {

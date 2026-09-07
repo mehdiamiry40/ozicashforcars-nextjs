@@ -16,6 +16,7 @@ type QuotePayload = {
   suburb?: unknown;
   vehicle?: unknown;
   condition?: unknown;
+  expectedPrice?: unknown;
   company?: unknown;
   consent?: unknown;
   sourcePath?: unknown;
@@ -61,6 +62,15 @@ function clean(value: unknown, max: number) {
   return typeof value === "string"
     ? value.replace(/[<>]/g, "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, max)
     : "";
+}
+
+// Visitors type prices as "$3,500", "3500" or "3 500". Accept those shapes and
+// store one canonical amount; anything else is a visitor-correctable mistake.
+function normalizedExpectedPrice(value: unknown) {
+  const raw = clean(value, 20).replace(/[$,\s]/g, "");
+  if (!raw) return "";
+  if (!/^\d{1,7}(\.\d{1,2})?$/.test(raw)) return null;
+  return String(Number(raw));
 }
 
 function clientKey(request: Request) {
@@ -139,6 +149,11 @@ export async function POST(request: Request) {
     return response("Please refresh the page and try again.", 400);
   }
 
+  const expectedPrice = normalizedExpectedPrice(payload.expectedPrice);
+  if (expectedPrice === null) {
+    return response("Please enter your expected price as a dollar amount, for example 3500.", 400);
+  }
+
   const quote = {
     name: clean(payload.name, 100),
     phone: clean(payload.phone, 30),
@@ -146,6 +161,7 @@ export async function POST(request: Request) {
     suburb: clean(payload.suburb, 100),
     vehicle: clean(payload.vehicle, 160),
     condition: clean(payload.condition, 1200),
+    expectedPrice,
     sourcePath: clean(payload.sourcePath, 300) || "/",
   };
   if (!quote.name || !quote.phone || !quote.suburb || !quote.vehicle || payload.consent !== "yes") {

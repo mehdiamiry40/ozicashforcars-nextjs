@@ -50,7 +50,7 @@ Apply the schema separately from the build:
 MIGRATION_EXPECTED_NEON_PROJECT_ID=replace_with_reviewed_project_id npm run db:migrate:quotes
 ```
 
-The migration is repeatable. Never run it automatically during `next build`. For production, pull credentials to an isolated temporary file and set `MIGRATION_EXPECTED_NEON_PROJECT_ID` to the reviewed production project ID; the migration refuses a mismatch. Quote records expire after 90 days; expired records and old rate buckets are purged by reconciliation. Rate-limit rows store HMAC hashes, not raw client addresses.
+Every file in `migrations/` is applied in filename order inside one transaction, and the migration is repeatable. Never run it automatically during `next build`. For production, pull credentials to an isolated temporary file and set `MIGRATION_EXPECTED_NEON_PROJECT_ID` to the reviewed production project ID; the migration refuses a mismatch. Quote records expire after 90 days; expired records and old rate buckets are purged by reconciliation. Rate-limit rows store HMAC hashes, not raw client addresses.
 
 When Neon cannot commit a lead, visitors receive a clear unavailable message with the business phone number. Once Neon commits, the visitor receives an honest accepted response even if Resend is temporarily unavailable. Vercel Firewall can be added as an outer abuse prefilter, but the transactional Neon budgets remain authoritative across function instances.
 
