@@ -33,19 +33,47 @@ for (const [description, overrides, message] of [
   });
 }
 
+// The redirect target must be loopback the transport's allowlist rejects. ::1 is
+// the sharpest case — a different address family, still the same machine — but
+// some containers carry no IPv6 stack, so a second IPv4 loopback address stands
+// in. Both are outside the allowlist, so the property under test is unchanged.
+const FORBIDDEN_ADDRESSES = ["::1", "127.0.0.2"];
+
+function listenOn(server, address) {
+  return new Promise((resolve, reject) => {
+    const onError = (error) => { server.removeListener("listening", onListening); reject(error); };
+    const onListening = () => { server.removeListener("error", onError); resolve(); };
+    server.once("error", onError);
+    server.once("listening", onListening);
+    server.listen(0, address);
+  });
+}
+
+async function listenOutsideAllowlist(server) {
+  const failures = [];
+  for (const address of FORBIDDEN_ADDRESSES) {
+    try {
+      await listenOn(server, address);
+      return address.includes(":") ? `[${address}]` : address;
+    } catch (error) {
+      failures.push(`${address} (${error.code ?? error.message})`);
+    }
+  }
+  throw new Error(`No loopback address outside the allowlist could be bound: ${failures.join(", ")}`);
+}
+
 test("the local test transport cannot follow redirects outside its allowlist", async () => {
   let forbiddenRequests = 0;
   const forbidden = createServer((_request, response) => {
     forbiddenRequests += 1;
     response.end("must not be reached");
   });
+  const forbiddenHost = await listenOutsideAllowlist(forbidden);
   const allowed = createServer((_request, response) => {
-    response.writeHead(302, { location: `http://[::1]:${forbidden.address().port}/forbidden` });
+    response.writeHead(302, { location: `http://${forbiddenHost}:${forbidden.address().port}/forbidden` });
     response.end();
   });
   try {
-    forbidden.listen(0, "::1");
-    await once(forbidden, "listening");
     allowed.listen(0, "127.0.0.1");
     await once(allowed, "listening");
     const databaseUrl = "postgresql://outbox:outbox@outbox.test/outbox_test_abcdef";
