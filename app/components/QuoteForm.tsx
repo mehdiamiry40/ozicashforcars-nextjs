@@ -125,11 +125,7 @@ export function QuoteForm({ sourcePath }: { sourcePath: string }) {
           <label htmlFor="quote-phone">Phone <span aria-hidden="true">*</span></label>
           <input id="quote-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" required maxLength={30} />
         </div>
-        <div className="field">
-          <label htmlFor="quote-email">Email</label>
-          <input id="quote-email" name="email" type="email" autoComplete="email" maxLength={160} />
-        </div>
-        <div className="field">
+        <div className="field field--wide">
           <label htmlFor="quote-suburb">Pickup suburb <span aria-hidden="true">*</span></label>
           <input id="quote-suburb" name="suburb" autoComplete="address-level2" required maxLength={100} />
         </div>
