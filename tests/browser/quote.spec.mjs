@@ -78,6 +78,21 @@ test('a provider failure stays on the form with a useful phone alternative', asy
   await page.waitForTimeout(1600);
   await page.getByRole('button',{name:'Get my free quote',exact:true}).click();
   await expect(page.locator('.form-status')).toContainText('0421 719 431');
+  // Submitting disables the fieldset, so focus must be returned to the reason.
+  await expect(page.locator('.form-status')).toBeFocused();
   await expect(page.getByRole('button',{name:'Get my free quote',exact:true})).toBeEnabled();
   expect(new URL(page.url()).search).toBe('');
+});
+
+test('the expected-price field blocks exactly what the endpoint rejects', async ({ page }) => {
+  await page.goto('/');
+  const price = page.locator('#quote-expected-price');
+  await expect(price).toBeEnabled();
+  for (const [value, accepted] of [
+    ['3500', true], ['$3,500.50', true], ['3 500', true], ['1,234,567', true], ['1234567', true],
+    ['12345678', false], ['12,345,678', false], ['3500.555', false], ['best offer', false],
+  ]) {
+    await price.fill(value);
+    expect(await price.evaluate(input => input.checkValidity()), value).toBe(accepted);
+  }
 });
