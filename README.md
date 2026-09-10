@@ -43,6 +43,7 @@ Copy `.env.example` to `.env.local` for local development. Keep preview, develop
 - `QUOTE_CLIENT_RATE_LIMIT`, `QUOTE_CONTACT_RATE_LIMIT`, `QUOTE_GLOBAL_RATE_LIMIT`: optional 15-minute budgets; defaults are 5, 5 and 100
 - `CRON_SECRET`: strong random bearer secret used by the reconciliation endpoint and Vercel Cron
 - `QUOTE_MONITOR_SECRET`: a separate random bearer secret (at least 32 characters) for the read-only queue-health endpoint
+- `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`: optional Google Search Console HTML-tag token; when set, the root layout renders the matching `google-site-verification` meta tag
 
 Apply the schema separately from the build:
 

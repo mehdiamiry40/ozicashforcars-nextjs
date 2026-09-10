@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   },
   description:
     "Sell your vehicle in Brisbane with a fast quote, payment on pickup and free standard towing from Ozi Cash for Cars.",
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+  },
   icons: {
     icon: "/wp-content/uploads/2019/07/cropped-favicon-32x32.png",
     shortcut: "/wp-content/uploads/2019/07/cropped-favicon-32x32.png",
