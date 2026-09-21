@@ -30,9 +30,12 @@ localUrl.pathname = `/${databaseName}`;
 const pool = new Pool({ connectionString: localUrl.href, max: 12, connectionTimeoutMillis: 5_000 });
 // The teardown below drops the disposable database WITH (FORCE), which
 // terminates any backend that has not finished closing. pg raises that FATAL
-// as an "error" event on the client, and a client without a listener makes
-// Node exit non-zero after every test has already passed. Failed queries still
-// reject their own promises, so no test result is hidden by this.
+// as an "error" event and, with no listener, Node exits non-zero after every
+// test has already passed. An idle connection reports through pg-pool's
+// idleListener, which re-emits on the pool; a checked-out one emits on the
+// client itself, so both need a listener. Failed queries still reject their
+// own promises, so no test result is hidden by this.
+pool.on("error", () => {});
 pool.on("connect", (client) => client.on("error", () => {}));
 let created = false;
 let proxy;
