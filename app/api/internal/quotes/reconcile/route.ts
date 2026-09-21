@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { describeQuoteStoreError } from "../../../../../lib/quotes/diagnostics";
 import { reconcileDueQuotes } from "../../../../../lib/quotes/service";
 
 export const dynamic = "force-dynamic";
@@ -75,8 +76,12 @@ export async function GET(request: Request) {
       { ok: healthy, ...result },
       { status: healthy ? 200 : 503, headers: NO_STORE_HEADERS },
     );
-  } catch {
-    console.error(JSON.stringify({ level: "error", message: "Quote reconciliation failed" }));
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      message: "Quote reconciliation failed",
+      ...describeQuoteStoreError(error),
+    }));
     return Response.json(
       { ok: false, message: "Quote reconciliation failed." },
       { status: 503, headers: NO_STORE_HEADERS },
