@@ -26,7 +26,6 @@ export default defineConfig({
       QUOTE_TO_EMAIL: 'contact@example.com',
       QUOTE_EMAIL_TIMEOUT_MS: '100',
       CRON_SECRET: '',
-      QUOTE_MONITOR_SECRET: '',
     },
   },
 });

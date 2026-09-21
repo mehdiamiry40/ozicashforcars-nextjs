@@ -42,7 +42,6 @@ Copy `.env.example` to `.env.local` for local development. Keep preview, develop
 - `QUOTE_RATE_SECRET`: at least 32 random characters, used only to HMAC short-lived rate-limit subjects
 - `QUOTE_CLIENT_RATE_LIMIT`, `QUOTE_CONTACT_RATE_LIMIT`, `QUOTE_GLOBAL_RATE_LIMIT`: optional 15-minute budgets; defaults are 5, 5 and 100
 - `CRON_SECRET`: strong random bearer secret used by the reconciliation endpoint and Vercel Cron
-- `QUOTE_MONITOR_SECRET`: a separate random bearer secret (at least 32 characters) for the read-only queue-health endpoint
 - `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`: optional Google Search Console HTML-tag token; when set, the root layout renders the matching `google-site-verification` meta tag
 
 Apply the schema separately from the build:
@@ -70,9 +69,7 @@ The included `vercel.json` uses the standard Next.js build with no custom output
 
 ## Production monitoring and rollback
 
-The reconciliation route returns `503` and writes a structured error log whenever a terminal lead or expired delivery lease requires operator attention. The separate `GET /api/internal/quotes/health/` endpoint requires `QUOTE_MONITOR_SECRET`, checks configuration and reads queue health without claiming, sending or purging leads. It returns `503` for terminal failures, expired leases, a due backlog older than five minutes or unavailable storage.
-
-The **Quote delivery health** GitHub workflow runs hourly at minute 17 and can be dispatched manually. Set repository variable `QUOTE_MONITOR_ORIGIN` to the approved production HTTPS origin and repository secret `QUOTE_MONITOR_SECRET` to the matching production-only value. Select an owner and enable failure notifications for that workflow in GitHub notification settings; a failed job is not proof that an inbox received an alert. GitHub schedules can be delayed, so use a dedicated monitoring service if a shorter detection target is required. See [launch readiness](docs/LAUNCH_READINESS.md) for activation and verification.
+The reconciliation route returns `503` and writes a structured error log whenever a terminal lead or expired delivery lease requires operator attention. There is no separate health endpoint or scheduled health workflow; use Vercel runtime logs, the cron job status and a dedicated monitoring service for delivery alerting.
 
 If the quote pipeline is unhealthy after release:
 

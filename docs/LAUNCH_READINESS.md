@@ -17,16 +17,6 @@ Select the exact production or preview Neon project and branch. Verify the selec
 
 The changed migration uses `CREATE OR REPLACE` for the acceptance function and preserves existing records; the isolated replay test verifies this with a sentinel. Do not down-migrate or delete retained records during application rollback. The final environment-specific migration remains an explicit release action against a verified resource.
 
-## Read-only health monitor
-
-1. Generate a separate random `QUOTE_MONITOR_SECRET` for production and place the same value in the GitHub repository secret. Use a different value for preview; do not reuse `CRON_SECRET`.
-2. Set `QUOTE_MONITOR_ORIGIN` in repository variables to the selected HTTPS production origin. While the main domain still serves WordPress, the current candidate alias is `https://ozicashforcars-nextjs-seven.vercel.app`.
-3. Deploy the new health endpoint before enabling the scheduled workflow on main. The hourly schedule is intentionally bounded; it is not a five-minute detection guarantee.
-4. Confirm healthy authenticated GET returns 200, invalid authentication returns 401, and a synthetic stale/failed queue in an isolated release environment returns 503 without changing any record or sending mail.
-5. Assign the repository owner or an explicit delegate to respond. Verify their GitHub Actions failure-notification settings and one deliberate test failure/recovery. No alert receipt should be claimed from the existence of the workflow or a secret alone.
-
-The endpoint returns aggregate counts, never names, email addresses, phones or vehicle details. It does not prove provider credentials are accepted, mailbox delivery works or cron runs while the queue is empty. Keep provider/receipt and scheduled-execution checks in the release evidence.
-
 ## Search migration decision
 
 All 242 suburb URLs retain the existing noindex/regional-canonical policy. Changing this policy needs old landing-page search, link and lead evidence. Export Search Console page-level performance and identify which specific locations deserve distinct content before choosing redirects/indexing. The audit's browser could not verify its administrator policy for Search Console, so access was unavailable; no substitute traffic figures were invented.
