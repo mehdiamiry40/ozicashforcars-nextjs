@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { SITE } from "../../site-config";
 import { quoteDeliveryConfigured, sendQuoteEmail } from "../../../lib/quotes/delivery";
+import { describeQuoteStoreError } from "../../../lib/quotes/diagnostics";
 import {
   acceptAndDeliverQuote,
   QuoteRateLimitError,
@@ -202,6 +203,7 @@ export async function POST(request: Request) {
       console.error(
         "Durable quote acceptance failed",
         error instanceof QuoteStoreUnavailableError ? "store-unavailable" : "store-error",
+        JSON.stringify(describeQuoteStoreError(error)),
       );
       const unavailable = unavailableQuoteResult();
       return response(unavailable.message, unavailable.status, unavailable.ok);
