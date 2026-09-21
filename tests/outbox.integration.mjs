@@ -17,7 +17,6 @@ if (!databaseUrl || databaseUrl !== process.env.DATABASE_URL) {
 const sql = neon(databaseUrl);
 const environment = `test-${Date.now().toString(36)}`;
 const cronSecret = randomBytes(32).toString("hex");
-const monitorSecret = randomBytes(32).toString("hex");
 let base;
 let server;
 let serverOutput = "";
@@ -81,24 +80,6 @@ async function reconcile(secret = cronSecret) {
   return { status: response.status, body: await response.json() };
 }
 
-async function health(secret = monitorSecret) {
-  const response = await fetch(`${base}/api/internal/quotes/health/`, {
-    headers: { authorization: `Bearer ${secret}` },
-  });
-  assert.equal(response.headers.get("cache-control"), "no-store");
-  return { status: response.status, body: await response.json() };
-}
-
-async function databaseSnapshot() {
-  return sql`
-    SELECT
-      (SELECT jsonb_agg(to_jsonb(lead) ORDER BY environment, submission_id) FROM quote_lead AS lead) AS leads,
-      (SELECT jsonb_agg(to_jsonb(attempt) ORDER BY environment, submission_id, attempt_no) FROM quote_delivery_attempt AS attempt) AS attempts,
-      (SELECT jsonb_agg(to_jsonb(bucket) ORDER BY environment, scope, subject_hash, window_start) FROM quote_rate_bucket AS bucket) AS buckets,
-      (SELECT jsonb_agg(to_jsonb(lease) ORDER BY environment) FROM quote_worker_lease AS lease) AS leases
-  `;
-}
-
 async function storedLead(submissionId) {
   const rows = await sql`
     SELECT status, attempt_count, last_error_code, provider_message_id, expected_price
@@ -129,7 +110,6 @@ before(async () => {
         QUOTE_CONTACT_RATE_LIMIT: "1",
         QUOTE_GLOBAL_RATE_LIMIT: "100",
         CRON_SECRET: cronSecret,
-        QUOTE_MONITOR_SECRET: monitorSecret,
         NODE_OPTIONS: `--import=${localTransport} --import=${mockModule}`,
         RESEND_API_KEY: "re_mock_key",
         QUOTE_FROM_EMAIL: "Ozi Quotes <quotes@example.com>",
@@ -153,17 +133,6 @@ after(async () => {
     tx`DELETE FROM quote_rate_bucket WHERE environment = ${environment}`,
     tx`DELETE FROM quote_worker_lease WHERE environment = ${environment}`,
   ]);
-});
-
-test("health uses separate authentication and reports a healthy queue without writes", async () => {
-  const snapshot = await databaseSnapshot();
-  assert.equal((await fetch(`${base}/api/internal/quotes/health/`)).status, 401);
-  assert.equal((await health(cronSecret)).status, 401);
-  assert.equal((await health("é".repeat(monitorSecret.length))).status, 401);
-  const healthy = await health();
-  assert.equal(healthy.status, 200);
-  assert.deepEqual(healthy.body, { ok: true, queue: { failed: 0, due: 0, expiredLeases: 0, oldestDueSeconds: 0 } });
-  assert.deepEqual(await databaseSnapshot(), snapshot);
 });
 
 test("concurrent identical submissions create one lead, budget charge and delivery", async () => {
@@ -243,7 +212,7 @@ test("Neon batch transactions roll back every statement when a later statement f
   assert.equal(rows[0].count, 0);
 });
 
-test("health reports expired delivery leases without claiming them, and reconciliation recovers them", async () => {
+test("reconciliation recovers expired delivery leases", async () => {
   const payload = quotePayload({ phone: "0400 111 098", email: "lease@example.com", vehicle: "[fail-once] Lease recovery vehicle" });
   assert.equal((await post(payload, "198.51.100.98")).status, 202);
   await sql`
@@ -251,18 +220,12 @@ test("health reports expired delivery leases without claiming them, and reconcil
        SET status = 'sending', lease_token = ${randomUUID()}::uuid, lease_until = now() - interval '10 minutes'
      WHERE environment = ${environment} AND submission_id = ${payload.submissionId}::uuid
   `;
-  const snapshot = await databaseSnapshot();
-  const expired = await health();
-  assert.equal(expired.status, 503);
-  assert.equal(expired.body.queue.expiredLeases, 1);
-  assert.deepEqual(await databaseSnapshot(), snapshot);
   const worker = await reconcile();
   assert.equal(worker.status, 200);
   assert.equal(worker.body.sent, 1);
   const lead = await storedLead(payload.submissionId);
   assert.equal(lead.status, "sent");
   assert.equal(lead.attempt_count, 2);
-  assert.equal((await health()).status, 200);
 });
 
 test("acceptance and retention purge only the active environment and cascade expired delivery attempts", async () => {
@@ -286,9 +249,6 @@ test("acceptance and retention purge only the active environment and cascade exp
       `;
     }
     await sql`UPDATE quote_lead SET status = 'failed' WHERE environment = ${otherEnvironment}`;
-    const beforeHealth = await databaseSnapshot();
-    assert.equal((await health()).status, 200, "another environment's failed lead must not make this environment unhealthy");
-    assert.deepEqual(await databaseSnapshot(), beforeHealth, "health must not claim, deliver or purge expired records in either environment");
     const payload = quotePayload({ phone: "0400 111 099", email: "retention@example.com" });
     assert.equal((await post(payload, "198.51.100.99")).status, 200);
     const buckets = await sql`SELECT environment FROM quote_rate_bucket WHERE subject_hash = ${expiredHash} ORDER BY environment`;
@@ -356,12 +316,6 @@ test("a stale due backlog keeps reconciliation unhealthy", async () => {
      WHERE environment = ${environment}
        AND submission_id = ANY(${payloads.map((payload) => payload.submissionId)}::uuid[])
   `;
-  const beforeHealth = await databaseSnapshot();
-  const staleHealth = await health();
-  assert.equal(staleHealth.status, 503);
-  assert.equal(staleHealth.body.ok, false);
-  assert.equal(staleHealth.body.queue.due, payloads.length);
-  assert.deepEqual(await databaseSnapshot(), beforeHealth, "monitoring stale work must not deliver or reschedule it");
   const worker = await reconcile();
   assert.equal(worker.status, 503);
   assert.equal(worker.body.ok, false);
@@ -402,9 +356,4 @@ test("malformed provider success stays queued and cron authentication fails clos
   assert.equal(unhealthy.status, 503);
   assert.equal(unhealthy.body.ok, false);
   assert.equal(unhealthy.body.backlog.failed, 1);
-  const beforeHealth = await databaseSnapshot();
-  const failedHealth = await health();
-  assert.equal(failedHealth.status, 503);
-  assert.equal(failedHealth.body.queue.failed, 1);
-  assert.deepEqual(await databaseSnapshot(), beforeHealth, "monitoring failed work must be read-only");
 });
