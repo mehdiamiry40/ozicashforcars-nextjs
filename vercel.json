@@ -3,11 +3,5 @@
   "framework": "nextjs",
   "regions": ["syd1"],
   "installCommand": "npm ci",
-  "buildCommand": "npm run build",
-  "crons": [
-    {
-      "path": "/api/internal/quotes/reconcile/",
-      "schedule": "* * * * *"
-    }
-  ]
+  "buildCommand": "npm run build"
 }

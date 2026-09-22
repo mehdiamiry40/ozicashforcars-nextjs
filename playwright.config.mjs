@@ -18,14 +18,10 @@ export default defineConfig({
     env: {
       NODE_OPTIONS: '',
       VERCEL: '',
-      DATABASE_URL: '',
-      DATABASE_URL_UNPOOLED: '',
-      QUOTE_OUTBOX_ENABLED: 'false',
       RESEND_API_KEY: 're_test_key',
       QUOTE_FROM_EMAIL: 'Ozi Quotes <quotes@example.com>',
       QUOTE_TO_EMAIL: 'contact@example.com',
       QUOTE_EMAIL_TIMEOUT_MS: '100',
-      CRON_SECRET: '',
     },
   },
 });

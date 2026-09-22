@@ -1,18 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { SITE } from "../../site-config";
 import { quoteDeliveryConfigured, sendQuoteEmail } from "../../../lib/quotes/delivery";
-import { describeQuoteStoreError } from "../../../lib/quotes/diagnostics";
-import {
-  acceptAndDeliverQuote,
-  QuoteRateLimitError,
-  QuoteStoreUnavailableError,
-  unavailableQuoteResult,
-} from "../../../lib/quotes/service";
-import { isQuoteOutboxEnabled } from "../../../lib/quotes/store";
 
-// Long enough for a durable accept plus a provider call bounded at 8 seconds,
-// and past the browser's own 12-second abort so a slow send still records its
-// delivery state instead of being killed mid-write and left for lease expiry.
+// Long enough for a provider call bounded at 8 seconds plus request overhead,
+// and past the browser's own 12-second abort so a slow send still finishes
+// rather than being killed mid-flight.
 export const maxDuration = 20;
 
 type QuotePayload = {
@@ -30,9 +22,17 @@ type QuotePayload = {
   submissionId?: unknown;
 };
 
+// Per-instance, in-memory: a serverless deployment runs several of these, so
+// the effective budget is this limit times the number of live instances. It
+// deters casual repeat submissions, not a distributed flood; put Vercel
+// Firewall in front for that.
 const requestLog = new Map<string, number[]>();
 const RATE_WINDOW_MS = 15 * 60 * 1000;
-const RATE_LIMIT = 5;
+const DEFAULT_RATE_LIMIT = 5;
+const RATE_LIMIT = (() => {
+  const configured = Number(process.env.QUOTE_CLIENT_RATE_LIMIT?.trim());
+  return Number.isInteger(configured) && configured > 0 ? configured : DEFAULT_RATE_LIMIT;
+})();
 const MAX_BODY_BYTES = 25_000;
 
 function isQuotePayload(value: unknown): value is QuotePayload {
@@ -187,35 +187,6 @@ export async function POST(request: Request) {
   const submissionId = requestedSubmissionId || randomUUID();
   const clientIdentity = clientKey(request);
 
-  if (isQuoteOutboxEnabled()) {
-    try {
-      const result = await acceptAndDeliverQuote({ ...quote, submissionId }, clientIdentity);
-      return response(result.message, result.status, result.ok);
-    } catch (error) {
-      if (error instanceof QuoteRateLimitError) {
-        return response(
-          `Too many requests. Please call ${SITE.phoneDisplay}.`,
-          429,
-          false,
-          { "retry-after": String(RATE_WINDOW_MS / 1000) },
-        );
-      }
-      console.error(
-        "Durable quote acceptance failed",
-        error instanceof QuoteStoreUnavailableError ? "store-unavailable" : "store-error",
-        JSON.stringify(describeQuoteStoreError(error)),
-      );
-      const unavailable = unavailableQuoteResult();
-      return response(unavailable.message, unavailable.status, unavailable.ok);
-    }
-  }
-
-  if (process.env.VERCEL) {
-    console.error("Durable quote outbox is not enabled for this Vercel environment");
-    const unavailable = unavailableQuoteResult();
-    return response(unavailable.message, unavailable.status, unavailable.ok);
-  }
-
   if (rateLimited(clientIdentity)) {
     return response(`Too many requests. Please call ${SITE.phoneDisplay}.`, 429);
   }
@@ -227,7 +198,8 @@ export async function POST(request: Request) {
 
   const delivery = await sendQuoteEmail({
     ...quote,
-    environment: "local",
+    // Keeps the provider idempotency key distinct per deployment environment.
+    environment: process.env.VERCEL_ENV?.trim() || "development",
     submissionId,
   });
   if (!delivery.ok) {

@@ -86,7 +86,6 @@ before(async () => {
       env: {
         ...process.env,
         VERCEL: "",
-        QUOTE_OUTBOX_ENABLED: "false",
         NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${mockModule}`.trim(),
         RESEND_API_KEY: "re_test_key",
         QUOTE_FROM_EMAIL: "Ozi Quotes <quotes@example.com>",

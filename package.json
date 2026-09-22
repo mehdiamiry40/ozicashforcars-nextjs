@@ -13,15 +13,11 @@
     "test": "npm run build && npm run test:integration",
     "test:integration": "node --test --test-concurrency=1 tests/*.test.mjs",
     "test:browser": "playwright test",
-    "test:outbox": "npm run build && npm run test:outbox:integration",
-    "test:outbox:integration": "node scripts/test-outbox-isolated.mjs",
-    "db:migrate:quotes": "node --env-file-if-exists=.env.local scripts/migrate-quotes.mjs",
     "snapshot": "node scripts/snapshot-site.mjs",
     "lint": "eslint . --ignore-pattern .next",
     "typecheck": "tsc --noEmit --incremental false"
   },
   "dependencies": {
-    "@neondatabase/serverless": "1.1.0",
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -33,7 +29,6 @@
     "@types/react-dom": "19.2.5",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.4",
-    "pg": "8.23.0",
     "typescript": "5.9.3"
   },
   "type": "module"

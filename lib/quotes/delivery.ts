@@ -1,5 +1,4 @@
 import { SITE } from "../../app/site-config";
-import type { StoredQuoteLead } from "./store";
 
 const DEFAULT_EMAIL_TIMEOUT_MS = 8_000;
 const MIN_EMAIL_TIMEOUT_MS = 100;
@@ -9,19 +8,19 @@ export type QuoteDeliveryResult =
   | { ok: true; providerMessageId: string }
   | { ok: false; errorCode: string; providerStatus?: number };
 
-type QuoteEmailLead = Pick<
-  StoredQuoteLead,
-  | "environment"
-  | "submissionId"
-  | "name"
-  | "phone"
-  | "email"
-  | "suburb"
-  | "vehicle"
-  | "condition"
-  | "expectedPrice"
-  | "sourcePath"
->;
+type QuoteEmailLead = {
+  // Only scopes the provider idempotency key; never shown to the operator.
+  environment: string;
+  submissionId: string;
+  name: string;
+  phone: string;
+  email: string;
+  suburb: string;
+  vehicle: string;
+  condition: string;
+  expectedPrice: string;
+  sourcePath: string;
+};
 
 function emailTimeoutMs() {
   const raw = process.env.QUOTE_EMAIL_TIMEOUT_MS?.trim();
