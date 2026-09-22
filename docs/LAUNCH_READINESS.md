@@ -8,14 +8,13 @@ The September 2026 remediation preserves all 282 known URLs and their existing s
 - The importer validates initial and redirect destinations before requests, requires its exact HTTPS origin, rejects credentials, and limits response time, size and redirects.
 - All 18 services have authored content. All 37 retained indexable routes are linked from the homepage. Anonymous stars, unsupported maximum-offer/one-hour claims and the guarantee ribbon were removed.
 - Informational schema reflects page type; unknown publication/review dates and snapshot-derived sitemap dates are omitted.
-- Required CI jobs are `Validate` and `Isolated outbox`. The latter uses a disposable PostgreSQL service without deployment secrets. See [OUTBOX_TESTING.md](OUTBOX_TESTING.md).
-- Expiration cleanup binds the current environment. Reapply the repeatable quote migration to deploy the stored-function change; source deployment alone does not update PostgreSQL functions.
+- The required CI job is `Validate`. It runs lint, type-check, the integration suite and the browser suite; no database is involved.
 
-## Before database changes
+## Quote delivery has no database
 
-Select the exact production or preview Neon project and branch. Verify the selected connection endpoint and database against that resource in the provider, and retain backup/restore evidence. `NEON_PROJECT_ID` is a configured label; the migration's equality check does not discover the connection's real project. Review both `DATABASE_URL_UNPOOLED` (preferred by migration) and runtime `DATABASE_URL` for the same intended branch. Never infer isolation merely from environment labels.
+The application stores nothing. A submission is sent to Resend during the request and the only copy is the email in the destination inbox, so mailbox retention is the retention policy and a deletion request is a mailbox operation.
 
-The changed migration uses `CREATE OR REPLACE` for the acceptance function and preserves existing records; the isolated replay test verifies this with a sentinel. Do not down-migrate or delete retained records during application rollback. The final environment-specific migration remains an explicit release action against a verified resource.
+A failed send is not retried and not recoverable: the visitor is shown the business phone number, and that call is the only remaining path. Verify the sender domain, the destination inbox and a real end-to-end send before cutover, and confirm who watches the inbox during business hours.
 
 ## Search migration decision
 
@@ -29,7 +28,7 @@ Observed 5 September 2026: apex `ozicashforcars.com.au` has A `43.250.142.133`; 
 
 After approving the landing-page map and release candidate, add/verify the business domains in Vercel and use the exact account-specific records that Vercel supplies. Retain the observed old web records for rollback. Change only web routing records; preserve existing email and verification records and nameservers unless separately required and reviewed. Verify TLS, www/apex direction, canonical URLs, redirects, robots/sitemap and quote acceptance after cutover. Keep the legacy host available through the rollback period.
 
-For rollback, disable Vercel Cron Jobs before reverting to an older application, preserve Neon records, restore the reviewed web records if necessary, and reconcile unresolved leads under operator control. DNS propagation is subject to the actual TTL and resolver caches.
+For rollback, revert to an older application artifact, restore the reviewed web records if necessary, and confirm the quote form's delivery path works before directing customers to it. DNS propagation is subject to the actual TTL and resolver caches.
 
 ## Factual inputs still needed
 
