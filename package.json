@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/csp-hashes.mjs",
     "start": "next start",
     "test": "npm run build && npm run test:integration",
     "test:integration": "node --test --test-concurrency=1 tests/*.test.mjs",
