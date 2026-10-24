@@ -1,14 +1,17 @@
+import Image from "next/image";
 import Link from "next/link";
 import { blogArticles, locationPagesForHub, SitePage } from "../site-data";
-import { REGION_LINKS, SERVICE_GROUPS, SERVICE_LINKS, SITE } from "../site-config";
+import { NON_BRISBANE_REGION_PATHS, PRIVACY_POLICY_UPDATED_LABEL, REGION_LINKS, SERVICE_GROUPS, SERVICE_LINKS, SITE } from "../site-config";
 import { ARTICLE_CONTENT } from "../article-content";
-import { GENERAL_FAQS, SERVICE_CONTENT, type QuestionAnswer } from "../service-content";
+import { COVERED_TOWING_TERMS, FREE_REMOVAL_LABEL_CAUTION, GENERAL_FAQS, SERVICE_CONTENT, type QuestionAnswer } from "../service-content";
 import { QuoteForm } from "./QuoteForm";
+
+const HERO_IMAGE = "/wp-content/uploads/2021/08/page-banner1.jpg";
 
 const processSteps = [
   { number: "01", title: "Request a quote", text: "Share the vehicle, condition and pickup suburb online or by phone." },
   { number: "02", title: "Review the offer", text: "We confirm the details and explain the offer before you commit." },
-  { number: "03", title: "Choose a pickup time", text: "Book a practical collection window. Standard towing is included." },
+  { number: "03", title: "Choose a pickup time", text: `Book a practical collection window. ${COVERED_TOWING_TERMS}` },
   { number: "04", title: "Get paid on pickup", text: "Complete the ownership check and receive the agreed payment." },
 ] as const;
 
@@ -20,6 +23,7 @@ function QuoteHero({ page }: { page: SitePage }) {
   const isSunshineCoast = page.path === "/cash-for-cars-sunshine-coast/";
   return (
     <section className="hero">
+      <Image className="hero__media" src={HERO_IMAGE} alt="" fill priority fetchPriority="high" sizes="100vw" />
       <div className="shell hero__grid">
         <div className="hero__copy">
           <span className="eyebrow">Vehicle quotes and arranged pickup</span>
@@ -48,14 +52,18 @@ function QuoteHero({ page }: { page: SitePage }) {
   );
 }
 
-function TrustStrip() {
+function TrustStrip({ page }: { page: SitePage }) {
+  const brisbaneTeam = !NON_BRISBANE_REGION_PATHS.has(page.path);
   return (
     <section className="trust-strip" aria-label="Service commitments">
       <div className="shell trust-strip__grid">
-        <div><strong>Free towing</strong><span>Standard local pickup included</span></div>
+        <div><strong>Towing terms</strong><span>{FREE_REMOVAL_LABEL_CAUTION}</span></div>
         <div><strong>Clear offers</strong><span>Know the amount before booking</span></div>
         <div><strong>Flexible pickup</strong><span>Choose an available collection time</span></div>
-        <div><strong>Local support</strong><span>Speak with our Brisbane team</span></div>
+        <div>
+          <strong>{brisbaneTeam ? "Local support" : "Contact the team"}</strong>
+          <span>{brisbaneTeam ? "Speak with our Brisbane team" : "Confirm availability, the final offer and towing terms for your vehicle before booking."}</span>
+        </div>
       </div>
     </section>
   );
@@ -82,7 +90,14 @@ function ProcessSection() {
   );
 }
 
-function ServicesSection() {
+function serviceLinksFor(page: SitePage) {
+  if (!NON_BRISBANE_REGION_PATHS.has(page.path)) return SERVICE_LINKS;
+  return SERVICE_LINKS.filter((link) => !/brisbane/i.test(link.label));
+}
+
+function ServicesSection({ page }: { page: SitePage }) {
+  const links = serviceLinksFor(page);
+  const visible = new Set(links.map((link) => link.href));
   return (
     <section className="section" id="services">
       <div className="shell">
@@ -92,7 +107,7 @@ function ServicesSection() {
           <p>Age, condition and registration status are considered as part of the offer.</p>
         </div>
         <div className="card-grid">
-          {SERVICE_LINKS.slice(0, 6).map((service, index) => (
+          {links.slice(0, 6).map((service, index) => (
             <Link className="service-card" href={service.href} key={service.href}>
               <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
               <h3>{service.label}</h3>
@@ -103,7 +118,11 @@ function ServicesSection() {
         </div>
         <div className="centered-cta"><h3>Browse all vehicle and collection services</h3><p>Choose the topic that matches the car, truck or pickup you need to discuss.</p></div>
         <div className="utility-grid">
-          {SERVICE_GROUPS.map((group) => <section key={group.title}><h3>{group.title}</h3>{group.links.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}</section>)}
+          {SERVICE_GROUPS.map((group) => {
+            const groupLinks = group.links.filter((link) => visible.has(link.href));
+            if (groupLinks.length === 0) return null;
+            return <section key={group.title}><h3>{group.title}</h3>{groupLinks.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}</section>;
+          })}
         </div>
       </div>
     </section>
@@ -126,9 +145,9 @@ function AreaSection({ page }: { page: SitePage }) {
           <a className="secondary-button secondary-button--light" href={SITE.phoneHref}>Check pickup availability</a>
         </div>
         <div className="area-list" aria-label="Popular service areas">
-          {(locations.length ? locations.map((location) => ({ href: location.path, label: location.location ?? location.heading })) : REGION_LINKS).map((area) => (
-            <Link href={area.href} key={area.href}>{area.label}</Link>
-          ))}
+          {locations.length
+            ? locations.map((location) => <span key={location.path}>{location.location ?? location.heading}</span>)
+            : REGION_LINKS.map((area) => <Link href={area.href} key={area.href}>{area.label}</Link>)}
         </div>
       </div>
     </section>
@@ -195,9 +214,9 @@ function StandardPage({ page }: { page: SitePage }) {
   return (
     <>
       <QuoteHero page={page} />
-      <TrustStrip />
+      <TrustStrip page={page} />
       <ProcessSection />
-      <ServicesSection />
+      <ServicesSection page={page} />
       <AreaSection page={page} />
       <FaqSection />
     </>
@@ -262,7 +281,7 @@ function PrivacyPage() {
   return (
     <article className="legal shell">
       <h1>Privacy policy</h1>
-      <p className="legal__updated">Last updated: 5 September 2026</p>
+      <p className="legal__updated">Last updated: {PRIVACY_POLICY_UPDATED_LABEL}</p>
       <p>Ozi Cash for Cars collects the information you submit so we can assess your vehicle, contact you about a quote and arrange pickup if you proceed.</p>
       <h2>Information we collect</h2>
       <p>Quote forms may collect your name, phone number, suburb, vehicle details, information about its condition and any price you expect. Our hosting provider may also process standard security and request logs.</p>

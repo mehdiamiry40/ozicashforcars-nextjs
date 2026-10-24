@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { HOME_DESCRIPTION, HOME_TITLE } from "./site-config";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.ozicashforcars.com.au"),
   title: {
-    default: "Cash for Cars Brisbane | Free Car Removal",
+    default: HOME_TITLE,
     template: "%s",
   },
-  description:
-    "Sell your vehicle in Brisbane with a fast quote, payment on pickup and free standard towing from Ozi Cash for Cars.",
+  description: HOME_DESCRIPTION,
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
   },

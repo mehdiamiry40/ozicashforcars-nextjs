@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
+import { classifyPaths } from "../lib/region-rules.mjs";
 
 const root = new URL("../", import.meta.url);
 const inventory = JSON.parse(await readFile(new URL("data/site-index.json", root), "utf8"));
 const origin = "https://www.ozicashforcars.com.au";
-const pages = new Map(await Promise.all(Object.keys(inventory.pages).map(async (path) => {
+const classified = classifyPaths(Object.keys(inventory.pages));
+assert.equal(Object.keys(inventory.pages).length, 282);
+assert.equal(classified.redirects.size, 242);
+assert.equal(classified.content.length, 40);
+const pages = new Map(await Promise.all(classified.content.map(async (path) => {
   const filename = path === "/" ? "index" : path.slice(1, -1);
   const html = await readFile(new URL(`.next/server/app/${filename}.html`, root), "utf8");
   const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/)?.[1];
@@ -14,6 +19,13 @@ const pages = new Map(await Promise.all(Object.keys(inventory.pages).map(async (
   assert.ok(Array.isArray(graph), `${path} has no structured-data graph`);
   return [path, { html, main, graph, indexable: !/<meta name="robots" content="[^"]*noindex/.test(html) }];
 })));
+
+test("legacy suburb URLs are redirects, not rendered pages", async () => {
+  for (const path of classified.redirects.keys()) {
+    const filename = path.slice(1, -1);
+    await assert.rejects(access(new URL(`.next/server/app/${filename}.html`, root)), { code: "ENOENT" });
+  }
+});
 
 function text(html) {
   return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, "")
@@ -77,6 +89,7 @@ test("schema describes informational pages accurately without inventing a public
   for (const [path, page] of pages) {
     const organization = page.graph.find((entity) => entity["@type"] === "Organization");
     assert.ok(organization?.name && organization.url, `${path} has no named organization`);
+    assert.equal(organization.telephone, "+61421719431", path);
     assert.equal(organization.address, undefined);
     assert.ok(!page.graph.some((entity) => ["LocalBusiness", "AutomotiveBusiness"].some((kind) => [].concat(entity["@type"]).includes(kind))), path);
     assert.ok(!page.graph.some((entity) => entity.aggregateRating || entity.review), path);
@@ -106,6 +119,19 @@ test("authored metadata and trust copy exclude unsupported legacy promises", () 
     const metadata = [...html.matchAll(/<(?:title|meta)\b[^>]*>[\s\S]*?<\/title>|<meta\b[^>]*>/g)].map(([tag]) => tag).join(" ");
     assert.doesNotMatch(text(main) + metadata, /\b1\s*HR\b|\$19,999|satisfaction guaranteed|★★★★★|Brisbane customer|Logan customer|Gold Coast customer/i, path);
   }
+  assert.equal(pages.get("/testimonials/").indexable, false);
+  assert.equal(pages.get("/vehicles/").indexable, false);
+  assert.equal(pages.get("/cash-for-cars-sunshine-coast/").indexable, false);
+  assert.doesNotMatch(pages.get("/").html, /href="\/testimonials\/"/);
+  assert.doesNotMatch(pages.get("/").html, /<title>[^<]*Free Car Removal/);
+  assert.doesNotMatch(text(pages.get("/").main), /Free towing|Standard local pickup included/);
+  assert.match(text(pages.get("/").main), /Do not rely on a general 'free removal' label to settle the details of a difficult recovery/);
+  assert.match(text(pages.get("/").main), /Standard towing is included in covered pickup arrangements/);
+  assert.match(text(pages.get("/free-car-removals/").main), /Do not rely on a general 'free removal' label to settle the details of a difficult recovery/);
+  for (const path of ["/cash-for-cars-gold-coast/", "/cash-for-cars-logan-city-suburbs/", "/cash-for-cars-sunshine-coast/"]) {
+    assert.doesNotMatch(text(pages.get(path).html.replace("Brisbane, Queensland", "")), /Brisbane team|Car removal Brisbane/, path);
+  }
+  assert.match(text(pages.get("/cash-for-cars-brisbane-northern-suburbs/").main), /Speak with our Brisbane team/);
   assert.doesNotMatch(pages.get("/testimonials/").main, /<blockquote\b/);
   const privacy = text(pages.get("/privacy-policy/").main);
   assert.match(privacy, /database for deletion after 90 days/);

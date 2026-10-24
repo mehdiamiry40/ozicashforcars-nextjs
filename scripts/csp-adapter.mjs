@@ -1,14 +1,19 @@
 import fs from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
+  NOT_FOUND_CSP_TOKEN,
   assertPublishedCsp,
   installDocumentCsp,
+  notFoundDocument,
+  notFoundPolicyB64,
+  replaceNotFoundTokenInDist,
   stripPreviewToolbar,
   stripToolbarFile,
   stripToolbarFromDist,
 } from "./publish-csp.mjs";
 
 const adapterFile = fileURLToPath(new URL("./csp-adapter.mjs", import.meta.url));
+let notFoundB64 = "";
 
 async function loadDelegatedAdapter() {
   const adapterPath = process.env.NEXT_ADAPTER_PATH;
@@ -45,16 +50,22 @@ export async function modifyConfig(config, context) {
   return config;
 }
 
+function applyWrittenTransforms(source) {
+  let next = source;
+  if (next.includes("vercel.live/_next-live/feedback/feedback.js")) next = stripPreviewToolbar(next);
+  if (notFoundB64 && next.includes(NOT_FOUND_CSP_TOKEN)) next = next.replaceAll(NOT_FOUND_CSP_TOKEN, notFoundB64);
+  return next;
+}
+
 function stripWritten(file, data) {
-  if (typeof file !== "string" || (!file.endsWith(".js") && !file.endsWith(".html"))) return data;
+  if (typeof file !== "string" || (!file.endsWith(".js") && !file.endsWith(".html") && !file.endsWith(".map"))) return data;
   if (typeof data === "string") {
-    if (!data.includes("vercel.live/_next-live/feedback/feedback.js")) return data;
-    return stripPreviewToolbar(data);
+    const next = applyWrittenTransforms(data);
+    return next === data ? data : next;
   }
   if (Buffer.isBuffer(data)) {
     const source = data.toString("utf8");
-    if (!source.includes("vercel.live/_next-live/feedback/feedback.js")) return data;
-    const next = stripPreviewToolbar(source);
+    const next = applyWrittenTransforms(source);
     return next === source ? data : Buffer.from(next);
   }
   return data;
@@ -114,6 +125,9 @@ export async function onBuildComplete(payload) {
     routing: payload.routing,
     outputs: payload.outputs,
   });
+  const notFound = notFoundDocument(documents);
+  notFoundB64 = notFound ? notFoundPolicyB64(notFound.policy) : "";
+  if (notFoundB64) replaceNotFoundTokenInDist(payload.distDir, payload.projectDir, notFoundB64);
   console.log(
     `CSP: published ${documents.length} per-page script policies before the deployment adapter writes config.json`,
   );

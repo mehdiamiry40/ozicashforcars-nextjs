@@ -14,6 +14,7 @@ import {
   sha256Source,
   stripPreviewToolbar,
 } from "../lib/csp.mjs";
+import { notFoundCspRegex } from "../scripts/publish-csp.mjs";
 
 const READY = "var ready = true;";
 const READY_HASH = "'sha256-TozK714HU/l1ieYBTx7IEMltYbPiij1d+yG6zbWK/BM='";
@@ -54,6 +55,20 @@ test("production script-src is hash-only and does not allowlist vercel.live", ()
   assert.equal(directiveValue(policy, "frame-ancestors"), "'none'");
   assert.equal(policy.includes("vercel.live"), false);
   assert.equal(policy.includes(READY_HASH), true);
+});
+
+test("the 404 policy matches unknown paths and not rendered pages", () => {
+  const documents = ["/", "/sell-my-car/", "/_not-found/", "/api/quote/"];
+  const expression = new RegExp(notFoundCspRegex(documents));
+  assert.equal(expression.test("/this-page-does-not-exist/"), true);
+  assert.equal(expression.test("/this-page-does-not-exist"), true);
+  assert.equal(expression.test("/"), false);
+  assert.equal(expression.test("/sell-my-car"), false);
+  assert.equal(expression.test("/sell-my-car/"), false);
+  assert.equal(expression.test("/_not-found/"), false);
+  assert.equal(expression.test("/api/quote/"), false);
+  assert.equal(expression.test("/_next/static/chunk.js"), false);
+  assert.equal(expression.test("/sitemap.xml"), false);
 });
 
 test("the placeholder stays until hashes are published", () => {
