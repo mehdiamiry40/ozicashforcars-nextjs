@@ -220,7 +220,10 @@ export function orderBeforeMiddleware(routes) {
     else if (isInternalRedirect(route)) internal.push(route);
     else redirects.push(route);
   }
-  return [...headers, ...redirects, ...internal];
+  // The Vercel adapter hoists priority:true ahead of every other redirect.
+  // The slash rules have to stay after the specific 301s, so they cannot keep that flag.
+  const slash = internal.map((route) => (route.priority === true ? { ...route, priority: false } : route));
+  return [...headers, ...redirects, ...slash];
 }
 
 export function orderManifestRedirects(redirects) {
@@ -641,7 +644,13 @@ export function assertPublishedCsp({ projectRoot, distDir, routing, requireDeplo
   for (const file of configs) {
     const data = JSON.parse(readFileSync(file, "utf8"));
     repairDeploymentConfig(data, documents);
-    if (Array.isArray(data.routes)) data.routes = orderConfigRoutes(data.routes);
+    if (Array.isArray(data.routes)) {
+      data.routes = orderConfigRoutes(data.routes);
+      const first = data.routes.find((route) => route.status === 301 || isPlatformSlash308(route));
+      console.log(
+        `CSP redirect order first=${first?.status ?? "none"} loc=${redirectLocation(first).slice(0, 24)} slash308=${data.routes.filter(isPlatformSlash308).length} status301=${data.routes.filter((route) => route.status === 301).length}`,
+      );
+    }
     if (notFound) ensureNotFoundConfigRoute(data, notFound, documents);
     const serialised = JSON.stringify(data);
     if (serialised.includes(CSP_HASH_PLACEHOLDER)) {

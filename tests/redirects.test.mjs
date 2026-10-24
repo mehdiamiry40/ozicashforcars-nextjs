@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import test from "node:test";
 import { classifyPaths } from "../lib/region-rules.mjs";
 import { redirectRules } from "../lib/route-policy.mjs";
-import { orderConfigRoutes } from "../scripts/publish-csp.mjs";
+import { orderBeforeMiddleware, orderConfigRoutes } from "../scripts/publish-csp.mjs";
 
 const require = createRequire(import.meta.url);
 const { buildCustomRoute } = require("next/dist/lib/build-custom-route");
@@ -72,6 +72,21 @@ test("built redirects are ordered ahead of the trailing-slash hop", () => {
   assert.equal(manifest.redirects[brisbaneIndex].statusCode, 301);
   assert.equal(manifest.redirects[brisbaneIndex].destination, "/");
   assert.equal(manifest.redirects[lutwycheIndex].destination, "/cash-for-cars-brisbane-northern-suburbs/");
+});
+
+test("slash redirects lose the priority flag that Vercel hoists", () => {
+  const ordered = orderBeforeMiddleware([
+    {
+      source: "/:notfile((?!\\.well-known(?:/.*)?)(?:[^/]+/)*[^/\\.]+)",
+      status: 308,
+      priority: true,
+      headers: { Location: "/$1/" },
+    },
+    { source: "/cash-for-cars-brisbane", status: 301, headers: { Location: "/" } },
+  ]);
+  assert.equal(ordered[0].status, 301);
+  assert.equal(ordered[1].status, 308);
+  assert.equal(ordered[1].priority, false);
 });
 
 test("deployment routes test a specific 301 before the trailing-slash 308", () => {
