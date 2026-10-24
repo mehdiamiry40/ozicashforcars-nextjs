@@ -88,6 +88,27 @@ test("strips the unconditional preview toolbar and keeps the production cookie g
   );
 });
 
+test("toolbar stripping reaches client chunks and leaves the cookie gate", async () => {
+  const { stripToolbarFromDist } = await import("../scripts/publish-csp.mjs");
+  const root = mkdtempSync(join(tmpdir(), "csp-toolbar-"));
+  const distDir = join(root, ".next");
+  try {
+    const chunk = join(distDir, "static/immutable/chunks/toolbar.js");
+    mkdirSync(join(distDir, "static/immutable/chunks"), { recursive: true });
+    const injected =
+      'before;var t=document.createElement("script");t.src="https://vercel.live/_next-live/feedback/feedback.js",t.setAttribute("data-deployment-id",globalThis.NEXT_DEPLOYMENT_ID),(document.head||document.documentElement).appendChild(t);after';
+    const gated =
+      'if(/(?:^|;\\s)__vercel_toolbar=1(?:;|$)/.test(document.cookie)){var r=document.createElement("script");r.src="https://vercel.live/_next-live/feedback/feedback.js",r.setAttribute("data-explicit-opt-in","true"),r.setAttribute("data-cookie-opt-in","true"),r.setAttribute("data-deployment-id",globalThis.NEXT_DEPLOYMENT_ID),(document.head||document.documentElement).appendChild(r)}';
+    writeFileSync(chunk, injected);
+    writeFileSync(join(distDir, "static/immutable/chunks/gated.js"), gated);
+    assert.equal(stripToolbarFromDist(distDir), 1);
+    assert.equal(readFileSync(chunk, "utf8").includes("vercel.live"), false);
+    assert.equal(readFileSync(join(distDir, "static/immutable/chunks/gated.js"), "utf8"), gated);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("the quote form still posts only to this origin", () => {
   const source = readFileSync(new URL("../app/components/QuoteForm.tsx", import.meta.url), "utf8");
   assert.match(source, /action="\/api\/quote\/"/);

@@ -46,13 +46,13 @@ export function headerSource(canonical) {
   return canonical.endsWith("/") ? canonical.slice(0, -1) : canonical;
 }
 
-function walk(directory, files = []) {
+function walk(directory, files = [], skip = SKIP_DIRECTORIES) {
   if (!existsSync(directory)) return files;
   for (const entry of readdirSync(directory)) {
-    if (SKIP_DIRECTORIES.has(entry)) continue;
+    if (skip.has(entry)) continue;
     const path = join(directory, entry);
     const info = statSync(path);
-    if (info.isDirectory()) walk(path, files);
+    if (info.isDirectory()) walk(path, files, skip);
     else if (info.isFile()) files.push(path);
   }
   return files;
@@ -489,10 +489,14 @@ export function assertPublishedCsp({ projectRoot, distDir, routing, requireDeplo
 }
 
 export function stripToolbarFromDist(distDir) {
+  // Client bundles live under static/chunks and static/immutable/chunks. The
+  // document walk skips a directory named "chunks"; this pass must not, or the
+  // unconditional preview toolbar stays in the file Vercel serves.
+  const includeChunks = new Set(["node_modules", "diagnostics", "trace"]);
   const roots = [join(distDir, "static"), join(distDir, "output"), join(distDir, "server")];
   let stripped = 0;
   for (const root of roots) {
-    for (const file of walk(root)) {
+    for (const file of walk(root, [], includeChunks)) {
       if (!file.endsWith(".js") && !file.endsWith(".html")) continue;
       const source = readFileSync(file, "utf8");
       if (!source.includes("vercel.live/_next-live/feedback/feedback.js")) continue;
