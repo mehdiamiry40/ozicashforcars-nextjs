@@ -156,9 +156,62 @@ function isRedirectRoute(route) {
   return typeof route?.status === "number" || typeof route?.statusCode === "number";
 }
 
+function redirectLocation(route) {
+  const headers = route?.headers;
+  if (!headers || typeof headers !== "object" || Array.isArray(headers)) return "";
+  const key = Object.keys(headers).find((name) => name.toLowerCase() === "location");
+  return key ? String(headers[key]) : "";
+}
+
 function isInternalRedirect(route) {
-  const source = String(route?.source || "");
-  return Boolean(route?.internal || route?.priority === true || source.includes(":notfile") || source.includes(":file((?!"));
+  const source = `${route?.source || ""} ${route?.src || ""} ${route?.sourceRegex || ""}`;
+  const location = redirectLocation(route);
+  return Boolean(
+    route?.internal ||
+      route?.priority === true ||
+      source.includes(":notfile") ||
+      source.includes(":file((?!") ||
+      /^\/\$\d+\/$/.test(location),
+  );
+}
+
+/**
+ * Vercel emits trailing-slash normalization as its own 308, ahead of the
+ * redirects Next already ordered. A specific 301 has to be tested first or
+ * `/cash-for-cars-brisbane` spends a hop adding the slash.
+ */
+export function isTrailingSlashNormalization(route) {
+  const location = redirectLocation(route);
+  const source = `${route?.source || ""} ${route?.src || ""} ${route?.sourceRegex || ""}`;
+  if (source.includes(":notfile") || source.includes(":file((?!")) return true;
+  if (source.includes("(?:[^/]+/)*[^/")) return true;
+  if (/^\/\$\d+\/$/.test(location)) return true;
+  if (source.includes("well-known") && !isRedirectRoute(route)) return true;
+  return false;
+}
+
+export function orderConfigRoutes(routes) {
+  if (!Array.isArray(routes)) return routes;
+  const early = [];
+  const redirects = [];
+  const normalization = [];
+  const late = [];
+  let phase = "early";
+  for (const route of routes) {
+    if (isTrailingSlashNormalization(route)) {
+      normalization.push(route);
+      if (phase === "early") phase = "redirects";
+      continue;
+    }
+    if (isRedirectRoute(route)) {
+      redirects.push(route);
+      phase = "redirects";
+      continue;
+    }
+    if (phase === "early") early.push(route);
+    else late.push(route);
+  }
+  return [...early, ...redirects, ...normalization, ...late];
 }
 
 export function orderBeforeMiddleware(routes) {
@@ -592,6 +645,7 @@ export function assertPublishedCsp({ projectRoot, distDir, routing, requireDeplo
   for (const file of configs) {
     const data = JSON.parse(readFileSync(file, "utf8"));
     repairDeploymentConfig(data, documents);
+    if (Array.isArray(data.routes)) data.routes = orderConfigRoutes(data.routes);
     if (notFound) ensureNotFoundConfigRoute(data, notFound, documents);
     const serialised = JSON.stringify(data);
     if (serialised.includes(CSP_HASH_PLACEHOLDER)) {

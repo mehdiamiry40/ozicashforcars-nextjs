@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import test from "node:test";
 import { classifyPaths } from "../lib/region-rules.mjs";
 import { redirectRules } from "../lib/route-policy.mjs";
+import { orderConfigRoutes } from "../scripts/publish-csp.mjs";
 
 const require = createRequire(import.meta.url);
 const { buildCustomRoute } = require("next/dist/lib/build-custom-route");
@@ -71,6 +72,34 @@ test("built redirects are ordered ahead of the trailing-slash hop", () => {
   assert.equal(manifest.redirects[brisbaneIndex].statusCode, 301);
   assert.equal(manifest.redirects[brisbaneIndex].destination, "/");
   assert.equal(manifest.redirects[lutwycheIndex].destination, "/cash-for-cars-brisbane-northern-suburbs/");
+});
+
+test("deployment routes test a specific 301 before the trailing-slash 308", () => {
+  const slash = {
+    src: "^/((?:[^/]+/)*[^/\\.]+)$",
+    headers: { Location: "/$1/" },
+    status: 308,
+  };
+  const wellKnown = { src: "^/\\.well-known(?:/.*)?$" };
+  const fileSlash = {
+    src: "^/((?:[^/]+/)*[^/]+\\.\\w+)/$",
+    headers: { Location: "/$1" },
+    status: 308,
+  };
+  const brisbane = {
+    src: "^/cash-for-cars-brisbane(?:\\/)?$",
+    headers: { Location: "/" },
+    status: 301,
+  };
+  const header = { src: "^/$", continue: true, headers: { "X-Frame-Options": "DENY" } };
+  const ordered = orderConfigRoutes([header, wellKnown, slash, fileSlash, brisbane, { handle: "filesystem" }]);
+  assert.equal(ordered[0], header);
+  assert.equal(ordered[1], brisbane);
+  assert.deepEqual(ordered.slice(2, 5), [wellKnown, slash, fileSlash]);
+  assert.equal(ordered.at(-1).handle, "filesystem");
+  const brisbanePattern = new RegExp(brisbane.src);
+  assert.equal(brisbanePattern.test("/cash-for-cars-brisbane"), true);
+  assert.equal(brisbanePattern.test("/cash-for-cars-brisbane/"), true);
 });
 
 test("robots omits Host and sitemap lastmod is only the authored privacy date", async () => {
