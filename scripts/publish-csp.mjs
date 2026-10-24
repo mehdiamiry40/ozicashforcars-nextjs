@@ -175,46 +175,39 @@ function isInternalRedirect(route) {
   );
 }
 
-const TRAILING_SLASH_SOURCES = new Set([
-  "^/\\.well-known(?:/.*)?$",
-  "^/((?:[^/]+/)*[^/\\.]+)$",
-  "^/((?:[^/]+/)*[^/]+\\.\\w+)/$",
-]);
-
 /**
- * These are the only routes that add or strip a slash for every path.
- * Dynamic page routes also contain `[^/]+` and must stay in their phase.
+ * The deployment config starts with two continue:308 routes that add or strip
+ * a slash for every non-file path. Specific 301s sit later in the same list.
+ * Pull only those 301s in front of those two routes. Leave every other route,
+ * including per-page headers and filesystem handles, where it is.
  */
-export function isTrailingSlashNormalization(route) {
-  if (!route || route.handle || route.dest || route.continue || route.check) return false;
+export function isPlatformSlash308(route) {
+  if (!route || route.status !== 308 || route.handle || route.dest) return false;
+  const location = redirectLocation(route);
+  if (location !== "/$1/" && location !== "/$1") return false;
   const src = String(route.src || "");
-  if (TRAILING_SLASH_SOURCES.has(src)) return true;
-  const source = String(route.source || "");
-  return source.includes(":notfile") || source.includes(":file((?!");
+  return src.includes("well-known") || src.includes("\\w+") || src.includes("[^/\\.]");
 }
 
 export function orderConfigRoutes(routes) {
   if (!Array.isArray(routes)) return routes;
-  const early = [];
-  const redirects = [];
-  const normalization = [];
-  const late = [];
-  let phase = "early";
+  const slash = [];
+  const specific = [];
+  const rest = [];
   for (const route of routes) {
-    if (isTrailingSlashNormalization(route)) {
-      normalization.push(route);
-      if (phase === "early") phase = "redirects";
-      continue;
-    }
-    if (isRedirectRoute(route)) {
-      redirects.push(route);
-      phase = "redirects";
-      continue;
-    }
-    if (phase === "early") early.push(route);
-    else late.push(route);
+    if (isPlatformSlash308(route)) slash.push(route);
+    else if (route.status === 301) specific.push(route);
+    else rest.push(route);
   }
-  return [...early, ...redirects, ...normalization, ...late];
+  if (slash.length === 0 || specific.length === 0) return routes;
+  let insertAt = 0;
+  for (const route of routes) {
+    if (isPlatformSlash308(route) || route.status === 301) break;
+    insertAt += 1;
+  }
+  const merged = [...rest];
+  merged.splice(insertAt, 0, ...specific, ...slash);
+  return merged;
 }
 
 export function orderBeforeMiddleware(routes) {
@@ -648,18 +641,7 @@ export function assertPublishedCsp({ projectRoot, distDir, routing, requireDeplo
   for (const file of configs) {
     const data = JSON.parse(readFileSync(file, "utf8"));
     repairDeploymentConfig(data, documents);
-    if (Array.isArray(data.routes)) {
-      // Logged so the preview route order can be checked. Reordering here
-      // previously matched dynamic routes and made every page 404.
-      const sample = data.routes.slice(0, 12).map((route) => ({
-        status: route.status,
-        handle: route.handle,
-        continue: route.continue === true,
-        loc: redirectLocation(route).slice(0, 40),
-        src: String(route.src || route.source || "").slice(0, 90),
-      }));
-      console.log(`CSP routes ${data.routes.length} trailingSlash=${String(data.trailingSlash)} ${JSON.stringify(sample)}`);
-    }
+    if (Array.isArray(data.routes)) data.routes = orderConfigRoutes(data.routes);
     if (notFound) ensureNotFoundConfigRoute(data, notFound, documents);
     const serialised = JSON.stringify(data);
     if (serialised.includes(CSP_HASH_PLACEHOLDER)) {

@@ -75,33 +75,32 @@ test("built redirects are ordered ahead of the trailing-slash hop", () => {
 });
 
 test("deployment routes test a specific 301 before the trailing-slash 308", () => {
-  const slash = {
-    src: "^/((?:[^/]+/)*[^/\\.]+)$",
-    headers: { Location: "/$1/" },
-    status: 308,
-  };
-  const wellKnown = { src: "^/\\.well-known(?:/.*)?$" };
   const fileSlash = {
-    src: "^/((?:[^/]+/)*[^/]+\\.\\w+)/$",
+    src: "^(?:\\/((?!\\.well-known(?:\\/.*)?)(?:[^/]+\\/)*[^/]+\\.\\w+))\\/$",
     headers: { Location: "/$1" },
     status: 308,
+    continue: true,
   };
+  const slash = {
+    src: "^(?:\\/((?!\\.well-known(?:\\/.*)?)(?:[^/]+\\/)*[^/\\.]+))$",
+    headers: { Location: "/$1/" },
+    status: 308,
+    continue: true,
+  };
+  const header = { src: "^/about-us(?:\\/)?$", continue: true, headers: { "Content-Security-Policy": "default-src 'self'" } };
   const brisbane = {
     src: "^/cash-for-cars-brisbane(?:\\/)?$",
     headers: { Location: "/" },
     status: 301,
   };
-  const header = { src: "^/$", continue: true, headers: { "X-Frame-Options": "DENY" } };
-  const dynamic = { src: "^/((?:[^/]+/)*[^/]+)$", dest: "/index" };
-  const ordered = orderConfigRoutes([header, wellKnown, slash, fileSlash, brisbane, dynamic, { handle: "filesystem" }]);
-  assert.equal(ordered[0], header);
-  assert.equal(ordered[1], brisbane);
-  assert.deepEqual(ordered.slice(2, 5), [wellKnown, slash, fileSlash]);
-  assert.equal(ordered[5], dynamic);
-  assert.equal(ordered.at(-1).handle, "filesystem");
+  const filesystem = { handle: "filesystem" };
+  const ordered = orderConfigRoutes([fileSlash, slash, header, brisbane, filesystem]);
+  assert.deepEqual(ordered, [brisbane, fileSlash, slash, header, filesystem]);
   const brisbanePattern = new RegExp(brisbane.src);
   assert.equal(brisbanePattern.test("/cash-for-cars-brisbane"), true);
   assert.equal(brisbanePattern.test("/cash-for-cars-brisbane/"), true);
+  assert.equal(new RegExp(slash.src).test("/sell-my-car"), true);
+  assert.equal(new RegExp(slash.src).test("/sell-my-car/"), false);
 });
 
 test("robots omits Host and sitemap lastmod is only the authored privacy date", async () => {
