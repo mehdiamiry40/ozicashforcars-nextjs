@@ -27,13 +27,11 @@ export async function modifyConfig(config, context) {
   // Vercel's modifyConfig points adapterPath back at itself. This file has to
   // stay the adapter so hashes are in the routing object before it is serialised.
   config.adapterPath = adapterFile;
-  // Turbopack's immutable assets are content-addressed and shared across
-  // deployments. The preview toolbar is compiled into that chunk, and the first
-  // upload of a hash keeps being served. Opt out before compilation so this
-  // deployment uploads the stripped file under its own deployment id.
-  config.supportsImmutableAssets = false;
-  config.experimental = { ...(config.experimental ?? {}), supportsImmutableAssets: false };
-  if (Array.isArray(config.instrumentationClientInject)) {
+  // Preview compiles the toolbar as an unconditional script. That chunk is
+  // content-addressed, so stripping it after the hash is computed cannot
+  // replace the bytes already uploaded. Drop the inject before compilation.
+  // Production leaves the cookie-gated module; public responses never run it.
+  if (process.env.VERCEL_ENV !== "production" && Array.isArray(config.instrumentationClientInject)) {
     const dropped = config.instrumentationClientInject.filter((spec) =>
       /vercel|toolbar|feedback/i.test(String(spec)),
     );

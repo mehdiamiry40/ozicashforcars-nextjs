@@ -205,15 +205,15 @@ test("hashes are published into adapter routing before that adapter seals output
   }
 });
 
-test("modifyConfig opts out of shared immutable assets and drops toolbar injects", async () => {
+test("modifyConfig drops preview toolbar injects and keeps them in production", async () => {
   const root = mkdtempSync(join(tmpdir(), "csp-modify-"));
   const delegatePath = join(root, "delegate.mjs");
   const previousAdapter = process.env.NEXT_ADAPTER_PATH;
+  const previousEnv = process.env.VERCEL_ENV;
   writeFileSync(
     delegatePath,
     `export function modifyConfig(config) {
        config.supportsImmutableAssets = true;
-       config.experimental = { ...(config.experimental ?? {}), supportsImmutableAssets: true };
        config.instrumentationClientInject = ["@vercel/toolbar/next", "./app/instrumentation-client"];
        return config;
      }
@@ -221,16 +221,22 @@ test("modifyConfig opts out of shared immutable assets and drops toolbar injects
   );
   process.env.NEXT_ADAPTER_PATH = delegatePath;
   try {
-    const adapter = await import(`../scripts/csp-adapter.mjs?modify=${Date.now()}`);
-    const next = await adapter.modifyConfig({ experimental: { other: true } }, {});
-    assert.equal(next.supportsImmutableAssets, false);
-    assert.equal(next.experimental.supportsImmutableAssets, false);
-    assert.equal(next.experimental.other, true);
-    assert.deepEqual(next.instrumentationClientInject, ["./app/instrumentation-client"]);
-    assert.equal(next.adapterPath.endsWith(`${join("scripts", "csp-adapter.mjs")}`), true);
+    process.env.VERCEL_ENV = "preview";
+    const preview = await import(`../scripts/csp-adapter.mjs?modify=${Date.now()}`);
+    const previewConfig = await preview.modifyConfig({}, {});
+    assert.equal(previewConfig.supportsImmutableAssets, true);
+    assert.deepEqual(previewConfig.instrumentationClientInject, ["./app/instrumentation-client"]);
+    assert.equal(previewConfig.adapterPath.endsWith(`${join("scripts", "csp-adapter.mjs")}`), true);
+
+    process.env.VERCEL_ENV = "production";
+    const production = await import(`../scripts/csp-adapter.mjs?modify=${Date.now()}-prod`);
+    const productionConfig = await production.modifyConfig({}, {});
+    assert.deepEqual(productionConfig.instrumentationClientInject, ["@vercel/toolbar/next", "./app/instrumentation-client"]);
   } finally {
     if (previousAdapter === undefined) delete process.env.NEXT_ADAPTER_PATH;
     else process.env.NEXT_ADAPTER_PATH = previousAdapter;
+    if (previousEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousEnv;
     rmSync(root, { recursive: true, force: true });
   }
 });
