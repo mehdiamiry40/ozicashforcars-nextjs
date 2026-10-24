@@ -648,10 +648,18 @@ export function assertPublishedCsp({ projectRoot, distDir, routing, requireDeplo
   for (const file of configs) {
     const data = JSON.parse(readFileSync(file, "utf8"));
     repairDeploymentConfig(data, documents);
-    if (Array.isArray(data.routes)) data.routes = orderConfigRoutes(data.routes);
-    // The platform prepends its own slash 308 when this flag is set, which
-    // would run before the specific 301s just ordered above.
-    if (data.trailingSlash === true) delete data.trailingSlash;
+    if (Array.isArray(data.routes)) {
+      // Logged so the preview route order can be checked. Reordering here
+      // previously matched dynamic routes and made every page 404.
+      const sample = data.routes.slice(0, 12).map((route) => ({
+        status: route.status,
+        handle: route.handle,
+        continue: route.continue === true,
+        loc: redirectLocation(route).slice(0, 40),
+        src: String(route.src || route.source || "").slice(0, 90),
+      }));
+      console.log(`CSP routes ${data.routes.length} trailingSlash=${String(data.trailingSlash)} ${JSON.stringify(sample)}`);
+    }
     if (notFound) ensureNotFoundConfigRoute(data, notFound, documents);
     const serialised = JSON.stringify(data);
     if (serialised.includes(CSP_HASH_PLACEHOLDER)) {
