@@ -8,7 +8,16 @@
  * a missing deployment config is a failure, not a warning.
  */
 import { join } from "node:path";
-import { assertPublishedCsp, installDocumentCsp, stripToolbarFromDist } from "./publish-csp.mjs";
+import {
+  assertNotFoundTokenReplaced,
+  assertPublishedCsp,
+  collectDocuments,
+  installDocumentCsp,
+  notFoundDocument,
+  notFoundPolicyB64,
+  replaceNotFoundTokenInDist,
+  stripToolbarFromDist,
+} from "./publish-csp.mjs";
 
 const projectRoot = process.cwd();
 const distDir = join(projectRoot, ".next");
@@ -21,6 +30,13 @@ try {
     const documents = installDocumentCsp({ projectRoot, distDir });
     console.log(`CSP: published ${documents.length} per-page script policies into the routes manifest`);
   }
+  const notFound = notFoundDocument(collectDocuments({ distDir }));
+  const notFoundB64 = notFound ? notFoundPolicyB64(notFound.policy) : "";
+  if (notFoundB64) {
+    const replaced = replaceNotFoundTokenInDist(distDir, projectRoot, notFoundB64);
+    console.log(`CSP: published the 404 policy into ${replaced} compiled file(s)`);
+  }
+  assertNotFoundTokenReplaced(distDir, projectRoot);
   const checked = assertPublishedCsp({
     projectRoot,
     distDir,

@@ -1,12 +1,12 @@
 # Launch and operational acceptance
 
-The September 2026 remediation preserves all 282 known URLs and their existing suburb-indexing policy. Code changes do not themselves redirect the public business domain, migrate an external database or prove email/alert receipt.
+The September 2026 remediation preserves all 282 known URLs. The 242 suburb URLs now return a permanent 301 to the regional page their canonical already named. Code changes do not themselves redirect the public business domain, migrate an external database or prove email/alert receipt.
 
 ## Source fixes and checks
 
 - The form uses explicit POST semantics and disabled fields until safe browser initialization. If scripts or identity creation fail, the phone alternative remains visible. This is a phone fallback, not native no-JavaScript online acceptance.
 - The importer validates initial and redirect destinations before requests, requires its exact HTTPS origin, rejects credentials, and limits response time, size and redirects.
-- All 18 services have authored content. All 37 retained indexable routes are linked from the homepage. Anonymous stars, unsupported maximum-offer/one-hour claims and the guarantee ribbon were removed.
+- All 18 services have authored content. Indexable routes are linked from the homepage. Testimonials, the vehicles page and the Sunshine Coast page stay noindex until the owner supplies reviews, a fuller vehicles page or confirmed coverage. Anonymous stars, unsupported maximum-offer/one-hour claims and the guarantee ribbon were removed.
 - Informational schema reflects page type; unknown publication/review dates and snapshot-derived sitemap dates are omitted.
 - The required CI job is `Validate`. It runs lint, type-check, the integration suite and the browser suite; no database is involved.
 
@@ -18,7 +18,7 @@ A failed send is not retried and not recoverable: the visitor is shown the busin
 
 ## Search migration decision
 
-All 242 suburb URLs retain the existing noindex/regional-canonical policy. Changing this policy needs old landing-page search, link and lead evidence. Export Search Console page-level performance and identify which specific locations deserve distinct content before choosing redirects/indexing. The audit's browser could not verify its administrator policy for Search Console, so access was unavailable; no substitute traffic figures were invented.
+All 242 suburb URLs permanently redirect to their regional page. Search Console page-level evidence was not available for that change; review performance after exporting it, and identify any suburb that deserves its own page before restoring a distinct URL. The audit's browser could not verify its administrator policy for Search Console, so access was unavailable; no substitute traffic figures were invented.
 
 Use [the generated migration CSV](launch-url-map.csv) to record each decision and its owner. Regenerate it after a build with `node scripts/export-launch-map.mjs`. Every entry must end in one of: retained with distinct content, redirected to a relevant destination, or intentionally excluded. Keep low-value duplicate pages excluded until a supported content decision is made. Do not treat a 200 response as proof of preserved search visibility.
 

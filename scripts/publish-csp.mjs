@@ -23,8 +23,11 @@ import {
   requiredScriptHashes,
   stripPreviewToolbar,
 } from "../lib/csp.mjs";
+import { classifyPaths } from "../lib/region-rules.mjs";
 
 export { stripPreviewToolbar };
+
+export const NOT_FOUND_CSP_TOKEN = "__CSP_NOT_FOUND_B64__";
 
 const require = createRequire(import.meta.url);
 const { buildCustomRoute } = require("next/dist/lib/build-custom-route");
@@ -119,10 +122,119 @@ export function collectDocuments({ distDir, outputs }) {
   return [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path));
 }
 
-function expectedPagePaths(projectRoot) {
+function inventoryClassification(projectRoot) {
   const indexPath = join(projectRoot, "data", "site-index.json");
+  if (!existsSync(indexPath)) return null;
   const index = JSON.parse(readFileSync(indexPath, "utf8"));
-  return Object.keys(index.pages);
+  return classifyPaths(Object.keys(index.pages));
+}
+
+function expectedPagePaths(projectRoot) {
+  return inventoryClassification(projectRoot)?.content ?? [];
+}
+
+export function notFoundDocument(documents) {
+  return documents.find((document) => document.path === "/_not-found/" || document.path === "/404/") ?? null;
+}
+
+export function notFoundCspRegex(documentPaths) {
+  const excluded = new Set(["/", "/sitemap.xml", "/robots.txt", "/manifest.webmanifest"]);
+  for (const path of documentPaths) {
+    excluded.add(path);
+    if (path.length > 1 && path.endsWith("/")) excluded.add(path.slice(0, -1));
+    if (path.length > 1 && !path.endsWith("/")) excluded.add(`${path}/`);
+  }
+  const alternatives = [...excluded].map((path) => path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return `^(?!/api(?:/|$)|/_next(?:/|$)|(?:${alternatives.join("|")})$).+`;
+}
+
+export function notFoundPolicyB64(policy) {
+  return Buffer.from(policy, "utf8").toString("base64");
+}
+
+function isRedirectRoute(route) {
+  return typeof route?.status === "number" || typeof route?.statusCode === "number";
+}
+
+function redirectLocation(route) {
+  const headers = route?.headers;
+  if (!headers || typeof headers !== "object" || Array.isArray(headers)) return "";
+  const key = Object.keys(headers).find((name) => name.toLowerCase() === "location");
+  return key ? String(headers[key]) : "";
+}
+
+function isInternalRedirect(route) {
+  const source = `${route?.source || ""} ${route?.src || ""} ${route?.sourceRegex || ""}`;
+  const location = redirectLocation(route);
+  return Boolean(
+    route?.internal ||
+      route?.priority === true ||
+      source.includes(":notfile") ||
+      source.includes(":file((?!") ||
+      /^\/\$\d+\/$/.test(location),
+  );
+}
+
+/**
+ * The deployment config starts with two continue:308 routes that add or strip
+ * a slash for every non-file path. Specific 301s sit later in the same list.
+ * Pull only those 301s in front of those two routes. Leave every other route,
+ * including per-page headers and filesystem handles, where it is.
+ */
+export function isPlatformSlash308(route) {
+  if (!route || route.status !== 308 || route.handle || route.dest) return false;
+  const location = redirectLocation(route);
+  if (location !== "/$1/" && location !== "/$1") return false;
+  const src = String(route.src || "");
+  return src.includes("well-known") || src.includes("\\w+") || src.includes("[^/\\.]");
+}
+
+export function orderConfigRoutes(routes) {
+  if (!Array.isArray(routes)) return routes;
+  const slash = [];
+  const specific = [];
+  const rest = [];
+  for (const route of routes) {
+    if (isPlatformSlash308(route)) slash.push(route);
+    else if (route.status === 301) specific.push(route);
+    else rest.push(route);
+  }
+  if (slash.length === 0 || specific.length === 0) return routes;
+  let insertAt = 0;
+  for (const route of routes) {
+    if (isPlatformSlash308(route) || route.status === 301) break;
+    insertAt += 1;
+  }
+  const merged = [...rest];
+  merged.splice(insertAt, 0, ...specific, ...slash);
+  return merged;
+}
+
+export function orderBeforeMiddleware(routes) {
+  if (!Array.isArray(routes)) return routes;
+  const headers = [];
+  const redirects = [];
+  const internal = [];
+  for (const route of routes) {
+    if (!isRedirectRoute(route)) headers.push(route);
+    else if (isInternalRedirect(route)) internal.push(route);
+    else redirects.push(route);
+  }
+  // The Vercel adapter hoists priority:true ahead of every other redirect.
+  // The slash rules have to stay after the specific 301s, so they cannot keep that flag.
+  const slash = internal.map((route) => (route.priority === true ? { ...route, priority: false } : route));
+  return [...headers, ...redirects, ...slash];
+}
+
+export function orderManifestRedirects(redirects) {
+  if (!Array.isArray(redirects)) return redirects;
+  const specific = [];
+  const internal = [];
+  for (const route of redirects) {
+    if (isInternalRedirect(route)) internal.push(route);
+    else specific.push(route);
+  }
+  return [...specific, ...internal];
 }
 
 export function assertDocumentsDiscovered(projectRoot, documents) {
@@ -131,11 +243,19 @@ export function assertDocumentsDiscovered(projectRoot, documents) {
   }
   const indexPath = join(projectRoot, "data", "site-index.json");
   if (!existsSync(indexPath)) return;
+  const inventory = inventoryClassification(projectRoot);
+  if (!inventory) return;
   const found = new Set(documents.map((document) => document.path));
-  const missing = expectedPagePaths(projectRoot).filter((path) => !found.has(path));
+  const missing = inventory.content.filter((path) => !found.has(path));
+  const leaked = [...inventory.redirects.keys()].filter((path) => found.has(path));
   if (missing.length) {
     throw new Error(
       `CSP hash check did not find prerendered HTML for ${missing.length} page(s), first ${missing[0]}. Pages are still dynamic, or the HTML was written somewhere else.`,
+    );
+  }
+  if (leaked.length) {
+    throw new Error(
+      `Redirected suburb URL was still prerendered, first ${leaked[0]}. Those URLs must 301 to their regional page.`,
     );
   }
 }
@@ -230,6 +350,15 @@ export function installRoutingHeaders(routing, documents) {
   for (const source of RESOURCE_SOURCES) {
     routing.beforeMiddleware.push(adapterHeaderRoute(source, resourcePolicy()));
   }
+  const notFound = notFoundDocument(documents);
+  if (notFound) {
+    routing.beforeMiddleware.push({
+      source: "/__csp_not_found__",
+      sourceRegex: notFoundCspRegex(documents.map((document) => document.path)),
+      headers: { "Content-Security-Policy": notFound.policy },
+    });
+  }
+  routing.beforeMiddleware = orderBeforeMiddleware(routing.beforeMiddleware);
 }
 
 export function installManifestHeaders(distDir, documents) {
@@ -255,6 +384,15 @@ export function installManifestHeaders(distDir, documents) {
     ...RESOURCE_SOURCES.map((source) => manifestHeaderRoute(source, resourcePolicy())),
   ];
   manifest.headers.push(...additions);
+  const notFound = notFoundDocument(documents);
+  if (notFound) {
+    manifest.headers.push({
+      source: "/__csp_not_found__",
+      headers: [{ key: "Content-Security-Policy", value: notFound.policy }],
+      regex: notFoundCspRegex(documents.map((document) => document.path)),
+    });
+  }
+  manifest.redirects = orderManifestRedirects(manifest.redirects);
   writeFileSync(manifestPath, JSON.stringify(manifest));
   return manifest;
 }
@@ -394,6 +532,19 @@ function routeSource(route) {
  * the hashes just collected. A catch-all that matches more than one document
  * loses its CSP so it cannot block a page whose hash it does not carry.
  */
+function ensureNotFoundConfigRoute(config, notFound, documents) {
+  const covered = policiesFromConfig(config, "/this-page-does-not-exist/").some(
+    (policy) => !policy.includes(CSP_HASH_PLACEHOLDER) && notFound.hashes.every((hash) => policy.includes(hash)),
+  );
+  if (covered) return;
+  if (!Array.isArray(config.routes)) config.routes = [];
+  config.routes.push({
+    src: notFoundCspRegex(documents.map((document) => document.path)),
+    continue: true,
+    headers: { "Content-Security-Policy": notFound.policy },
+  });
+}
+
 export function repairDeploymentConfig(config, documents) {
   const visit = (value) => {
     if (!value || typeof value !== "object") return;
@@ -458,6 +609,19 @@ export function assertPublishedCsp({ projectRoot, distDir, routing, requireDeplo
     throw new Error("CSP placeholder is still in routes-manifest.json");
   }
   assertDocumentsCovered(documents, (path) => policiesForPath(manifest.headers ?? [], path));
+  const notFound = notFoundDocument(documents);
+  if (inventoryClassification(projectRoot)) {
+    if (!notFound) {
+      throw new Error("404 HTML was not prerendered, so its Content-Security-Policy cannot be published.");
+    }
+    const notFoundPolicies = policiesForPath(manifest.headers ?? [], "/this-page-does-not-exist/");
+    const covered = notFoundPolicies.some(
+      (policy) => !policy.includes(CSP_HASH_PLACEHOLDER) && notFound.hashes.every((hash) => policy.includes(hash)),
+    );
+    if (!covered) {
+      throw new Error("404 responses have no Content-Security-Policy that covers the not-found page scripts.");
+    }
+  }
   installPrerenderHeaders(distDir, documents, projectRoot);
 
   if (routing?.beforeMiddleware) {
@@ -480,6 +644,14 @@ export function assertPublishedCsp({ projectRoot, distDir, routing, requireDeplo
   for (const file of configs) {
     const data = JSON.parse(readFileSync(file, "utf8"));
     repairDeploymentConfig(data, documents);
+    if (Array.isArray(data.routes)) {
+      data.routes = orderConfigRoutes(data.routes);
+      const first = data.routes.find((route) => route.status === 301 || isPlatformSlash308(route));
+      console.log(
+        `CSP redirect order first=${first?.status ?? "none"} loc=${redirectLocation(first).slice(0, 24)} slash308=${data.routes.filter(isPlatformSlash308).length} status301=${data.routes.filter((route) => route.status === 301).length}`,
+      );
+    }
+    if (notFound) ensureNotFoundConfigRoute(data, notFound, documents);
     const serialised = JSON.stringify(data);
     if (serialised.includes(CSP_HASH_PLACEHOLDER)) {
       throw new Error(`CSP placeholder is still in ${file}`);
@@ -534,4 +706,55 @@ export function stripToolbarFromDist(distDir, projectRoot = process.cwd()) {
     }
   }
   return stripped;
+}
+
+function textFilesUnder(root, skip) {
+  return walk(root, [], skip).filter((file) => file.endsWith(".js") || file.endsWith(".html") || file.endsWith(".map"));
+}
+
+export function replaceNotFoundTokenInDist(distDir, projectRoot, b64) {
+  if (!b64) return 0;
+  const skip = new Set(["node_modules", "diagnostics", "trace"]);
+  const roots = [
+    join(distDir, "server"),
+    join(distDir, "static"),
+    join(distDir, "output"),
+    join(projectRoot, ".vercel", "output"),
+    "/vercel/output",
+  ];
+  let replaced = 0;
+  for (const root of roots) {
+    for (const file of textFilesUnder(root, skip)) {
+      let source;
+      try {
+        source = readFileSync(file, "utf8");
+      } catch (error) {
+        if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") continue;
+        throw error;
+      }
+      if (!source.includes(NOT_FOUND_CSP_TOKEN)) continue;
+      writeFileSync(file, source.replaceAll(NOT_FOUND_CSP_TOKEN, b64));
+      replaced += 1;
+    }
+  }
+  return replaced;
+}
+
+export function assertNotFoundTokenReplaced(distDir, projectRoot) {
+  const skip = new Set(["node_modules", "diagnostics", "trace"]);
+  const roots = [
+    join(distDir, "server"),
+    join(distDir, "output"),
+    join(projectRoot, ".vercel", "output"),
+    "/vercel/output",
+  ];
+  for (const root of roots) {
+    for (const file of textFilesUnder(root, skip)) {
+      if (!file.endsWith(".js") && !file.endsWith(".html")) continue;
+      const source = readFileSync(file, "utf8");
+      if (source.includes(NOT_FOUND_CSP_TOKEN)) {
+        throw new Error(`404 CSP placeholder is still in ${file}`);
+      }
+    }
+  }
 }

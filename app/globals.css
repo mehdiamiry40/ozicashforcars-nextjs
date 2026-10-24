@@ -75,12 +75,16 @@ p { margin: 0 0 1rem; }
 
 .hero {
   position: relative; overflow: hidden; min-height: 638px;
-  background: #111 url("/wp-content/uploads/2021/08/page-banner1.jpg") center / cover no-repeat;
+  background: #111;
   color: white;
 }
-.hero::before { position: absolute; inset: 0; background: linear-gradient(90deg, rgb(0 0 0 / 30%), rgb(0 0 0 / 8%)); content: ""; }
+.hero__media { object-fit: cover; object-position: center; z-index: 0; }
+.hero::before {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none; content: "";
+  background: linear-gradient(90deg, rgb(0 0 0 / 78%) 0%, rgb(0 0 0 / 70%) 42%, rgb(0 0 0 / 55%) 100%);
+}
 .hero__grid {
-  position: relative; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(390px, .78fr);
+  position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(390px, .78fr);
   gap: clamp(2rem, 5vw, 5rem); align-items: center; min-height: 638px; padding-block: 3.2rem;
 }
 .hero__copy { min-width: 0; }
@@ -173,7 +177,7 @@ p { margin: 0 0 1rem; }
 .service-card strong, .guide-card strong { margin-top: auto; color: #8a5800; }
 .area-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .8fr); gap: clamp(2rem, 7vw, 6rem); align-items: start; }
 .area-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
-.area-list a { display: flex; min-height: 46px; align-items: center; padding: .55rem .75rem; border: 1px solid rgb(255 255 255 / 28%); border-radius: 0; color: white; font-size: .9rem; text-decoration: none; }
+.area-list a, .area-list span { display: flex; min-height: 46px; align-items: center; padding: .55rem .75rem; border: 1px solid rgb(255 255 255 / 28%); border-radius: 0; color: white; font-size: .9rem; text-decoration: none; }
 .area-list a:hover { border-color: var(--gold); background: var(--gold); color: #171717; }
 .faq-layout { display: grid; grid-template-columns: minmax(240px, .6fr) minmax(0, 1fr); gap: clamp(2rem, 7vw, 6rem); align-items: start; }
 .faq-list { border-top: 1px solid var(--line); }

@@ -1,3 +1,9 @@
+export const COVERED_TOWING_TERMS =
+  "Standard towing is included in covered pickup arrangements. Confirm that your vehicle and access fit those terms before treating removal as cost-free.";
+
+export const FREE_REMOVAL_LABEL_CAUTION =
+  "Do not rely on a general 'free removal' label to settle the details of a difficult recovery.";
+
 export type QuestionAnswer = { question: string; answer: string };
 export type ContentSection = { title: string; text: string };
 export type ServiceContent = {
@@ -165,11 +171,11 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
   "/free-car-removals/": {
     heading: "Free Car Removal: Check Your Pickup Terms",
     description: "Understand what to confirm about included standard towing, difficult access and unusual recovery costs before accepting a car-removal offer.",
-    intro: "Standard towing is included in covered pickup arrangements. Confirm that your vehicle and access fit those terms before treating removal as cost-free.",
+    intro: COVERED_TOWING_TERMS,
     sections: [
       { title: "Ask for the towing terms with the offer", text: "Provide the exact pickup suburb, vehicle description and access details when requesting a quote. Ask whether standard collection is included in the amount offered and whether any charge would be payable separately. Compare the amount you would actually receive." },
       { title: "Flag conditions outside a straightforward pickup", text: "Missing wheels, locked steering, low-clearance parking, steep access and a car stuck off a usable driveway can require a different recovery plan. Disclose these early. Ask for any additional work or cost to be explained and agreed before dispatch." },
-      { title: "Keep a record of the agreed arrangement", text: "Confirm the vehicle price, towing inclusion, payment method and collection window together. If the pickup location or vehicle condition changes, ask whether the terms need to change. Do not rely on a general 'free removal' label to settle the details of a difficult recovery." },
+      { title: "Keep a record of the agreed arrangement", text: `Confirm the vehicle price, towing inclusion, payment method and collection window together. If the pickup location or vehicle condition changes, ask whether the terms need to change. ${FREE_REMOVAL_LABEL_CAUTION}` },
     ],
     faqs: [
       { question: "Does free removal cover every recovery situation?", answer: "No blanket promise is made for unusual access or recovery. Describe the site and vehicle so the team can confirm whether standard towing applies and explain any other terms." },
@@ -286,7 +292,7 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
 
 export const GENERAL_FAQS: QuestionAnswer[] = [
   { question: "How is the offer calculated?", answer: "The vehicle's make, model, age, condition, location, completeness and recoverable value all affect the offer. Describe known faults and ask which details will be checked before a price is final." },
-  { question: "Is standard towing included?", answer: "Standard pickup in covered service areas is included. Tell us about difficult access, missing wheels or unusual recovery requirements and confirm the terms for your vehicle before booking." },
+  { question: "Is standard towing included?", answer: `${COVERED_TOWING_TERMS} ${FREE_REMOVAL_LABEL_CAUTION}` },
   { question: "What documents should I prepare?", answer: "You will normally need photo identification and proof that you are authorised to sell the vehicle. Ask the team to confirm the exact requirements, including any registration arrangements, before pickup." },
   { question: "Do I have to accept the quote?", answer: "No. Quotes are free and there is no obligation to proceed. Review the offer, payment method and collection terms before deciding." },
   { question: "Can I request a quote for a car that does not start?", answer: "Describe the fault and whether the car can roll and steer. Mention missing keys or wheels, so the team can assess the vehicle and its loading requirements." },
