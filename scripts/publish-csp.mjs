@@ -24,6 +24,8 @@ import {
   stripPreviewToolbar,
 } from "../lib/csp.mjs";
 
+export { stripPreviewToolbar };
+
 const require = createRequire(import.meta.url);
 const { buildCustomRoute } = require("next/dist/lib/build-custom-route");
 const { modifyRouteRegex } = require("next/dist/lib/redirect-status");
@@ -488,12 +490,36 @@ export function assertPublishedCsp({ projectRoot, distDir, routing, requireDeplo
   return { documents, configs };
 }
 
-export function stripToolbarFromDist(distDir) {
+export function stripToolbarFile(file) {
+  if (typeof file !== "string" || (!file.endsWith(".js") && !file.endsWith(".html"))) return false;
+  let source;
+  try {
+    source = readFileSync(file, "utf8");
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return false;
+    throw error;
+  }
+  if (!source.includes("vercel.live/_next-live/feedback/feedback.js")) return false;
+  const next = stripPreviewToolbar(source);
+  if (next === source) return false;
+  writeFileSync(file, next);
+  return true;
+}
+
+export function stripToolbarFromDist(distDir, projectRoot = process.cwd()) {
   // Client bundles live under static/chunks and static/immutable/chunks. The
   // document walk skips a directory named "chunks"; this pass must not, or the
   // unconditional preview toolbar stays in the file Vercel serves.
+  // The platform adapter copies those bundles into /vercel/output during
+  // onBuildComplete. Strip that tree too: it is what the deployment uploads.
   const includeChunks = new Set(["node_modules", "diagnostics", "trace"]);
-  const roots = [join(distDir, "static"), join(distDir, "output"), join(distDir, "server")];
+  const roots = [
+    join(distDir, "static"),
+    join(distDir, "output"),
+    join(distDir, "server"),
+    join(projectRoot, ".vercel", "output"),
+    "/vercel/output",
+  ];
   let stripped = 0;
   for (const root of roots) {
     for (const file of walk(root, [], includeChunks)) {

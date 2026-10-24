@@ -15,7 +15,8 @@ const distDir = join(projectRoot, ".next");
 const onVercel = process.env.VERCEL === "1" || Boolean(process.env.NEXT_ADAPTER_PATH);
 
 try {
-  stripToolbarFromDist(distDir);
+  const removed = stripToolbarFromDist(distDir, projectRoot);
+  if (removed) console.log(`CSP: removed the unconditional preview toolbar from ${removed} file(s)`);
   if (!onVercel) {
     const documents = installDocumentCsp({ projectRoot, distDir });
     console.log(`CSP: published ${documents.length} per-page script policies into the routes manifest`);

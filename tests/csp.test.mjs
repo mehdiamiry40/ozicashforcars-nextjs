@@ -99,9 +99,13 @@ test("toolbar stripping reaches client chunks and leaves the cookie gate", async
       'before;var t=document.createElement("script");t.src="https://vercel.live/_next-live/feedback/feedback.js",t.setAttribute("data-deployment-id",globalThis.NEXT_DEPLOYMENT_ID),(document.head||document.documentElement).appendChild(t);after';
     const gated =
       'if(/(?:^|;\\s)__vercel_toolbar=1(?:;|$)/.test(document.cookie)){var r=document.createElement("script");r.src="https://vercel.live/_next-live/feedback/feedback.js",r.setAttribute("data-explicit-opt-in","true"),r.setAttribute("data-cookie-opt-in","true"),r.setAttribute("data-deployment-id",globalThis.NEXT_DEPLOYMENT_ID),(document.head||document.documentElement).appendChild(r)}';
+    const outputChunk = join(distDir, "output/static/immutable/chunks/toolbar.js");
+    mkdirSync(join(distDir, "output/static/immutable/chunks"), { recursive: true });
     writeFileSync(chunk, injected);
+    writeFileSync(outputChunk, injected);
     writeFileSync(join(distDir, "static/immutable/chunks/gated.js"), gated);
-    assert.equal(stripToolbarFromDist(distDir), 1);
+    assert.equal(stripToolbarFromDist(distDir, root), 2);
+    assert.equal(readFileSync(outputChunk, "utf8").includes("vercel.live"), false);
     assert.equal(readFileSync(chunk, "utf8").includes("vercel.live"), false);
     assert.equal(readFileSync(join(distDir, "static/immutable/chunks/gated.js"), "utf8"), gated);
   } finally {
@@ -142,12 +146,17 @@ test("hashes are published into adapter routing before that adapter seals output
       }),
     );
     const sealedPath = join(distDir, "output/config.json");
+    const toolbarChunk = join(distDir, "static/chunks/toolbar.js");
+    const injected =
+      'var t=document.createElement("script");t.src="https://vercel.live/_next-live/feedback/feedback.js",t.setAttribute("data-deployment-id",globalThis.NEXT_DEPLOYMENT_ID),(document.head||document.documentElement).appendChild(t)';
     const delegatePath = join(root, "delegate.mjs");
     writeFileSync(
       delegatePath,
-      `import { mkdirSync, writeFileSync } from "node:fs";
+      `import fs from "node:fs";
        import { dirname } from "node:path";
        export async function onBuildComplete(payload) {
+         fs.mkdirSync(dirname(${JSON.stringify(toolbarChunk)}), { recursive: true });
+         fs.writeFileSync(${JSON.stringify(toolbarChunk)}, ${JSON.stringify(injected)});
          const routes = payload.routing.beforeMiddleware
            .filter((route) => route.headers && Object.values(route.headers).some((value) => String(value).includes("script-src")))
            .map((route) => ({
@@ -158,8 +167,8 @@ test("hashes are published into adapter routing before that adapter seals output
                String(value).replace(/'sha256-[^']*\\/[^']*'/g, ""),
              ])),
            }));
-         mkdirSync(dirname(${JSON.stringify(sealedPath)}), { recursive: true });
-         writeFileSync(${JSON.stringify(sealedPath)}, JSON.stringify({ routes }));
+         fs.mkdirSync(dirname(${JSON.stringify(sealedPath)}), { recursive: true });
+         fs.writeFileSync(${JSON.stringify(sealedPath)}, JSON.stringify({ routes }));
        }
        export default { onBuildComplete };`,
     );
@@ -188,6 +197,37 @@ test("hashes are published into adapter routing before that adapter seals output
     const home = JSON.parse(sealed).routes.find((route) => route.src.includes("sell-my-car") === false && route.headers["Content-Security-Policy"]?.includes(READY_HASH));
     assert.ok(home, "home policy restored after a slash-containing hash was dropped");
     assert.equal(home.headers["Content-Security-Policy"].includes(sha256Source("window.__page = 2;")), false);
+    assert.equal(readFileSync(toolbarChunk, "utf8").includes("vercel.live"), false);
+  } finally {
+    if (previousAdapter === undefined) delete process.env.NEXT_ADAPTER_PATH;
+    else process.env.NEXT_ADAPTER_PATH = previousAdapter;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("modifyConfig opts out of shared immutable assets and drops toolbar injects", async () => {
+  const root = mkdtempSync(join(tmpdir(), "csp-modify-"));
+  const delegatePath = join(root, "delegate.mjs");
+  const previousAdapter = process.env.NEXT_ADAPTER_PATH;
+  writeFileSync(
+    delegatePath,
+    `export function modifyConfig(config) {
+       config.supportsImmutableAssets = true;
+       config.experimental = { ...(config.experimental ?? {}), supportsImmutableAssets: true };
+       config.instrumentationClientInject = ["@vercel/toolbar/next", "./app/instrumentation-client"];
+       return config;
+     }
+     export default { modifyConfig };`,
+  );
+  process.env.NEXT_ADAPTER_PATH = delegatePath;
+  try {
+    const adapter = await import(`../scripts/csp-adapter.mjs?modify=${Date.now()}`);
+    const next = await adapter.modifyConfig({ experimental: { other: true } }, {});
+    assert.equal(next.supportsImmutableAssets, false);
+    assert.equal(next.experimental.supportsImmutableAssets, false);
+    assert.equal(next.experimental.other, true);
+    assert.deepEqual(next.instrumentationClientInject, ["./app/instrumentation-client"]);
+    assert.equal(next.adapterPath.endsWith(`${join("scripts", "csp-adapter.mjs")}`), true);
   } finally {
     if (previousAdapter === undefined) delete process.env.NEXT_ADAPTER_PATH;
     else process.env.NEXT_ADAPTER_PATH = previousAdapter;
