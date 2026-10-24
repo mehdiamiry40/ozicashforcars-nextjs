@@ -92,10 +92,12 @@ test("deployment routes test a specific 301 before the trailing-slash 308", () =
     status: 301,
   };
   const header = { src: "^/$", continue: true, headers: { "X-Frame-Options": "DENY" } };
-  const ordered = orderConfigRoutes([header, wellKnown, slash, fileSlash, brisbane, { handle: "filesystem" }]);
+  const dynamic = { src: "^/((?:[^/]+/)*[^/]+)$", dest: "/index" };
+  const ordered = orderConfigRoutes([header, wellKnown, slash, fileSlash, brisbane, dynamic, { handle: "filesystem" }]);
   assert.equal(ordered[0], header);
   assert.equal(ordered[1], brisbane);
   assert.deepEqual(ordered.slice(2, 5), [wellKnown, slash, fileSlash]);
+  assert.equal(ordered[5], dynamic);
   assert.equal(ordered.at(-1).handle, "filesystem");
   const brisbanePattern = new RegExp(brisbane.src);
   assert.equal(brisbanePattern.test("/cash-for-cars-brisbane"), true);

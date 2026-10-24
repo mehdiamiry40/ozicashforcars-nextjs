@@ -175,19 +175,22 @@ function isInternalRedirect(route) {
   );
 }
 
+const TRAILING_SLASH_SOURCES = new Set([
+  "^/\\.well-known(?:/.*)?$",
+  "^/((?:[^/]+/)*[^/\\.]+)$",
+  "^/((?:[^/]+/)*[^/]+\\.\\w+)/$",
+]);
+
 /**
- * Vercel emits trailing-slash normalization as its own 308, ahead of the
- * redirects Next already ordered. A specific 301 has to be tested first or
- * `/cash-for-cars-brisbane` spends a hop adding the slash.
+ * These are the only routes that add or strip a slash for every path.
+ * Dynamic page routes also contain `[^/]+` and must stay in their phase.
  */
 export function isTrailingSlashNormalization(route) {
-  const location = redirectLocation(route);
-  const source = `${route?.source || ""} ${route?.src || ""} ${route?.sourceRegex || ""}`;
-  if (source.includes(":notfile") || source.includes(":file((?!")) return true;
-  if (source.includes("(?:[^/]+/)*[^/")) return true;
-  if (/^\/\$\d+\/$/.test(location)) return true;
-  if (source.includes("well-known") && !isRedirectRoute(route)) return true;
-  return false;
+  if (!route || route.handle || route.dest || route.continue || route.check) return false;
+  const src = String(route.src || "");
+  if (TRAILING_SLASH_SOURCES.has(src)) return true;
+  const source = String(route.source || "");
+  return source.includes(":notfile") || source.includes(":file((?!");
 }
 
 export function orderConfigRoutes(routes) {
@@ -646,6 +649,9 @@ export function assertPublishedCsp({ projectRoot, distDir, routing, requireDeplo
     const data = JSON.parse(readFileSync(file, "utf8"));
     repairDeploymentConfig(data, documents);
     if (Array.isArray(data.routes)) data.routes = orderConfigRoutes(data.routes);
+    // The platform prepends its own slash 308 when this flag is set, which
+    // would run before the specific 301s just ordered above.
+    if (data.trailingSlash === true) delete data.trailingSlash;
     if (notFound) ensureNotFoundConfigRoute(data, notFound, documents);
     const serialised = JSON.stringify(data);
     if (serialised.includes(CSP_HASH_PLACEHOLDER)) {
