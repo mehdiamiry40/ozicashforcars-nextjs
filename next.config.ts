@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { join } from "node:path";
 import { buildContentSecurityPolicy, buildDevContentSecurityPolicy } from "./lib/csp.mjs";
+import { redirectRules } from "./lib/route-policy.mjs";
 
 // Production script hashes are unknown until prerender finishes. The placeholder
 // is replaced in the build output by scripts/csp-hashes.mjs. On Vercel that is
@@ -16,21 +17,14 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   outputFileTracingRoot: process.cwd(),
   turbopack: { root: process.cwd() },
+  images: {
+    formats: ["image/avif", "image/webp"],
+  },
   // Vercel sets NEXT_ADAPTER_PATH to its own adapter. Wrap it so the routing
   // object it serialises already contains the real script hashes.
   ...(process.env.NEXT_ADAPTER_PATH ? { adapterPath: join(process.cwd(), "scripts/csp-adapter.mjs") } : {}),
   async redirects() {
-    return [
-      { source: "/cash-for-cars-brisbane", destination: "/", permanent: true },
-      { source: "/cash-for-cars-logan-city-suburbs/:slug", destination: "/logan-city-suburbs/:slug/", permanent: true },
-      { source: "/brisbane-eastern-suburbs/brisbane-eastern-suburbs/:slug", destination: "/brisbane-eastern-suburbs/:slug/", permanent: true },
-      { source: "/brisbane-northern-suburbs/cash-for-cars-lutwyche-mcdowall", destination: "/brisbane-northern-suburbs/cash-for-cars-lutwyche/", permanent: true },
-      // The captured route inventory currently contains these two pages only under
-      // southern suburbs. Preserve those known-good targets until canonical content
-      // exists for a geographically corrected route.
-      { source: "/brisbane-northern-suburbs/cash-for-cars-wilston", destination: "/brisbane-southern-suburbs/cash-for-cars-wilston/", permanent: true },
-      { source: "/brisbane-northern-suburbs/cash-for-cars-wooloowin", destination: "/brisbane-southern-suburbs/cash-for-cars-wooloowin/", permanent: true },
-    ];
+    return redirectRules(process.cwd());
   },
   async headers() {
     const securityHeaders = [

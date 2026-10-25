@@ -1,12 +1,12 @@
 # Ozi Cash for Cars
 
-A production-focused Next.js rebuild of the Ozi Cash for Cars website. It keeps all 282 known public routes while replacing the former WordPress snapshot runtime with fast, accessible, statically generated pages.
+A production-focused Next.js rebuild of the Ozi Cash for Cars website. It keeps all 282 known public routes while replacing the former WordPress snapshot runtime with fast, accessible, statically generated pages. The 242 legacy suburb URLs permanently redirect to the regional page they already canonicalised to; the other known routes stay directly reachable.
 
 ## What is included
 
 - Responsive, keyboard-accessible page templates and quote forms
 - Distinct service guides without unsupported maximum-offer, one-hour or testimonial claims
-- Indexable service and regional pages, with local suburb URLs consolidated to their regional canonical page
+- Indexable service and regional pages, with the 242 legacy suburb URLs permanently redirected to their regional page
 - Organization, page-specific WebPage, Service, BlogPosting and breadcrumb structured data
 - Clean sitemap and robots rules
 - Permanent redirects for known legacy broken URLs

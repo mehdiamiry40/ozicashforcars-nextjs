@@ -63,7 +63,7 @@ function structuredData(page: SitePage) {
     name: SITE.name,
     url: SITE.url,
     logo: absoluteUrl("/wp-content/uploads/2022/04/logo.png"),
-    telephone: SITE.phoneDisplay,
+    telephone: SITE.phoneSchema,
     email: SITE.email,
   };
   const breadcrumb = {
@@ -97,7 +97,7 @@ function structuredData(page: SitePage) {
     author: { "@type": "Organization", name: SITE.name, url: absoluteUrl("/about-us/") },
     publisher: { "@id": businessId },
     ...(page.ogImage ? { image: absoluteUrl(page.ogImage) } : {}),
-    // Publication/review dates are omitted until authentic editorial dates are recorded.
+    // No per-post frontmatter or post file exists, so there is no publication date to record.
   } : null;
   const service = isService ? {
     "@type": "Service",
@@ -124,7 +124,7 @@ export default async function SitePageRoute({ params }: PageProps) {
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <Header quoteHref={pageHasQuote ? "#quote" : "/sell-my-car/#quote"} />
       <main id="main-content"><PageContent page={page} /></main>
-      <Footer />
+      <Footer pathname={page.path} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
     </>
   );

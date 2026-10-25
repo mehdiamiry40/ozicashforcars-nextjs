@@ -1,5 +1,6 @@
 import rawIndex from "../data/site-index.json";
-import { SITE } from "./site-config";
+import { REGION_HUB_NAMES, REGION_RULES } from "../lib/region-rules.mjs";
+import { HOME_DESCRIPTION, HOME_TITLE, SITE } from "./site-config";
 import { ARTICLE_CONTENT } from "./article-content";
 import { SERVICE_CONTENT } from "./service-content";
 
@@ -50,50 +51,7 @@ export type SitePage = {
 
 const index = rawIndex as RawIndex;
 
-const REGION_RULES = [
-  {
-    prefix: "/brisbane-northern-suburbs/",
-    hubPath: "/cash-for-cars-brisbane-northern-suburbs/",
-    region: "Brisbane's northern suburbs",
-  },
-  {
-    prefix: "/brisbane-southern-suburbs/",
-    hubPath: "/cash-for-cars-brisbane-southern-suburbs/",
-    region: "Brisbane's southern suburbs",
-  },
-  {
-    prefix: "/brisbane-eastern-suburbs/",
-    hubPath: "/cash-for-cars-brisbane-eastern-suburbs/",
-    region: "Brisbane's eastern suburbs",
-  },
-  {
-    prefix: "/brisbane-western-suburbs/",
-    hubPath: "/cash-for-cars-brisbane-western-suburbs/",
-    region: "Brisbane's western suburbs",
-  },
-  {
-    prefix: "/logan-city-suburbs/",
-    hubPath: "/cash-for-cars-logan-city-suburbs/",
-    region: "Logan City",
-  },
-  {
-    prefix: "/cash-for-cars-gold-coast/",
-    hubPath: "/cash-for-cars-gold-coast/",
-    region: "the Gold Coast",
-  },
-] as const;
-
-const REGION_HUBS = new Map<string, string>(
-  [
-    ["/cash-for-cars-brisbane-northern-suburbs/", "Brisbane Northern Suburbs"],
-    ["/cash-for-cars-brisbane-southern-suburbs/", "Brisbane Southern Suburbs"],
-    ["/cash-for-cars-brisbane-eastern-suburbs/", "Brisbane Eastern Suburbs"],
-    ["/cash-for-cars-brisbane-western-suburbs/", "Brisbane Western Suburbs"],
-    ["/cash-for-cars-logan-city-suburbs/", "Logan City"],
-    ["/cash-for-cars-gold-coast/", "Gold Coast"],
-    ["/cash-for-cars-sunshine-coast/", "Sunshine Coast"],
-  ] as const,
-);
+const REGION_HUBS = new Map<string, string>(Object.entries(REGION_HUB_NAMES));
 
 const KIND_PATHS: Record<string, PageKind> = {
   "/": "home",
@@ -110,7 +68,7 @@ const KIND_PATHS: Record<string, PageKind> = {
 };
 
 const SPECIAL_TITLES: Record<string, string> = {
-  "/": "Cash for Cars Brisbane | Free Car Removal",
+  "/": HOME_TITLE,
   "/about-us/": "About Ozi Cash for Cars Brisbane",
   "/blog/": "Car Selling Guides | Ozi Cash for Cars",
   "/contact-us/": "Contact Ozi Cash for Cars Brisbane",
@@ -124,7 +82,7 @@ const SPECIAL_TITLES: Record<string, string> = {
 };
 
 const PAGE_DESCRIPTIONS: Record<string, string> = {
-  "/": "Request a Brisbane vehicle quote with your car's condition and pickup suburb. Review the offer, payment and towing terms before deciding to sell.",
+  "/": HOME_DESCRIPTION,
   "/about-us/": "Learn how Ozi Cash for Cars handles vehicle enquiries and arranged pickup, and find the team's contact details and service hours.",
   "/blog/": "Practical car-selling guides covering vehicle details, offers, pickup preparation and Queensland safety-certificate questions.",
   "/contact-us/": "Call, email or send a vehicle enquiry to Ozi Cash for Cars. Find contact hours and share the condition and pickup suburb for a quote.",
@@ -190,7 +148,7 @@ function modelPage(pathname: string, raw: RawPage): SitePage {
     return {
       path: pathname,
       kind: "location",
-      title: trimTo(`Cash for Cars ${location} | Free Car Removal`, 58),
+      title: trimTo(`Cash for Cars ${location} | Check Your Pickup Terms`, 58),
       heading: `Cash for Cars ${location}`,
       description: trimTo(
         `Enquire about a vehicle quote in ${location}. Share its condition and access details, then confirm pickup availability and towing terms.`,
@@ -219,7 +177,7 @@ function modelPage(pathname: string, raw: RawPage): SitePage {
       ogImage: raw.ogImage,
       location: hubName,
       region: hubName,
-      noIndex: false,
+      noIndex: pathname === "/cash-for-cars-sunshine-coast/",
       canonicalPath: pathname,
     };
   }
@@ -229,7 +187,7 @@ function modelPage(pathname: string, raw: RawPage): SitePage {
   if (kind === "service" && !service) throw new Error(`Missing authored service content: ${pathname}`);
   const heading = service?.heading ?? SPECIAL_TITLES[pathname]?.split("|")[0].trim() ?? titleCase(lastSegment(pathname));
   const title = SPECIAL_TITLES[pathname] ?? trimTo(`${heading} | Ozi Cash for Cars`, 58);
-  const noIndex = kind === "thank-you" || kind === "utility";
+  const noIndex = kind === "thank-you" || kind === "utility" || kind === "testimonials" || kind === "vehicles";
 
   return {
     path: pathname,
@@ -266,7 +224,7 @@ export function pagePathFromSlug(slug?: string[]) {
 }
 
 export function staticParams() {
-  return allPages.map((page) => ({
+  return allPages.filter((page) => page.kind !== "location").map((page) => ({
     slug: page.path === "/" ? undefined : page.path.split("/").filter(Boolean),
   }));
 }

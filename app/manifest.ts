@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
+import { COVERED_TOWING_TERMS } from "./service-content";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Ozi Cash for Cars",
     short_name: "Ozi Cash",
-    description: "Vehicle quotes and free car removal in greater Brisbane.",
+    description: COVERED_TOWING_TERMS,
     start_url: "/",
     display: "standalone",
     background_color: "#0b1110",

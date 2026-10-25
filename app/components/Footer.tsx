@@ -1,7 +1,10 @@
 import Link from "next/link";
-import { INFORMATION_LINKS, REGION_LINKS, SERVICE_LINKS, SITE } from "../site-config";
+import { INFORMATION_LINKS, NON_BRISBANE_REGION_PATHS, REGION_LINKS, SERVICE_LINKS, SITE } from "../site-config";
 
-export function Footer() {
+export function Footer({ pathname = "/" }: { pathname?: string }) {
+  const services = NON_BRISBANE_REGION_PATHS.has(pathname)
+    ? SERVICE_LINKS.filter((link) => !/brisbane/i.test(link.label))
+    : SERVICE_LINKS;
   return (
     <footer className="site-footer">
       <div className="shell footer-grid">
@@ -17,7 +20,7 @@ export function Footer() {
         <nav aria-labelledby="footer-services">
           <h2 id="footer-services">Services</h2>
           <ul>
-            {SERVICE_LINKS.slice(0, 6).map((link) => (
+            {services.slice(0, 6).map((link) => (
               <li key={link.href}><Link href={link.href}>{link.label}</Link></li>
             ))}
             <li><Link href="/#services">Browse all services</Link></li>
