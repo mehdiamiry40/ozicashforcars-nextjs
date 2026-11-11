@@ -1,5 +1,3 @@
-import { SITE } from "../../app/site-config";
-
 const DEFAULT_EMAIL_TIMEOUT_MS = 8_000;
 const MIN_EMAIL_TIMEOUT_MS = 100;
 const MAX_EMAIL_TIMEOUT_MS = 8_000;
@@ -52,14 +50,14 @@ function isTimeoutError(error: unknown) {
 }
 
 export function quoteDeliveryConfigured() {
-  return Boolean(process.env.RESEND_API_KEY?.trim() && senderAddress());
+  return Boolean(process.env.RESEND_API_KEY?.trim() && senderAddress() && process.env.QUOTE_TO_EMAIL?.trim());
 }
 
 export async function sendQuoteEmail(lead: QuoteEmailLead): Promise<QuoteDeliveryResult> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = senderAddress();
-  const to = process.env.QUOTE_TO_EMAIL?.trim() || SITE.email;
-  if (!apiKey || !from) return { ok: false, errorCode: "not_configured" };
+  const to = process.env.QUOTE_TO_EMAIL?.trim();
+  if (!apiKey || !from || !to) return { ok: false, errorCode: "not_configured" };
 
   try {
     const response = await fetch("https://api.resend.com/emails", {

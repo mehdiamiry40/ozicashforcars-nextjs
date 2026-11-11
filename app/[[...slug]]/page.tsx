@@ -64,7 +64,6 @@ function structuredData(page: SitePage) {
     url: SITE.url,
     logo: absoluteUrl("/wp-content/uploads/2022/04/logo.png"),
     telephone: SITE.phoneSchema,
-    email: SITE.email,
   };
   const breadcrumb = {
     "@type": "BreadcrumbList",

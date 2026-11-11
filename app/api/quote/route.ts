@@ -192,7 +192,7 @@ export async function POST(request: Request) {
   }
 
   if (!quoteDeliveryConfigured()) {
-    console.error("Quote email is not configured: RESEND_API_KEY and QUOTE_FROM_EMAIL are required.");
+    console.error("Quote email is not configured: RESEND_API_KEY, QUOTE_TO_EMAIL and a sender (QUOTE_FROM_EMAIL or RESEND_EMAIL_DOMAIN) are required.");
     return response(`Online quotes are temporarily unavailable. Please call ${SITE.phoneDisplay}.`, 503);
   }
 
