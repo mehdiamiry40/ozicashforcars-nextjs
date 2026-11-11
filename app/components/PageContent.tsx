@@ -290,7 +290,7 @@ function PrivacyPage() {
       <h2>Sharing and storage</h2>
       <p>Information is handled by service providers used for website hosting, database storage and email delivery. We do not sell quote-request information. The website schedules quote details in its database for deletion after 90 days. This database policy does not automatically delete copies in email inboxes, delivery-provider systems, security logs or records created if you proceed with a sale. Contact us to ask about those records or request deletion; any records that must be retained for legal obligations may be kept longer.</p>
       <h2>Your choices</h2>
-      <p>You may ask to access or correct your information, or request deletion where we are not required to retain it. Contact <a href={`mailto:${SITE.email}`}>{SITE.email}</a> or call <a href={SITE.phoneHref}>{SITE.phoneDisplay}</a>.</p>
+      <p>You may ask to access or correct your information, or request deletion where we are not required to retain it. To make a request, call <a href={SITE.phoneHref}>{SITE.phoneDisplay}</a>.</p>
     </article>
   );
 }
@@ -310,7 +310,7 @@ function AboutPage({ page }: { page: SitePage }) {
   return (
     <>
       <section className="page-hero"><div className="shell page-hero__inner"><span className="eyebrow">A local, mobile vehicle buyer</span><h1>{page.heading}</h1><p>We help owners sell unwanted vehicles with clear quotes and arranged pickup across greater Brisbane.</p></div></section>
-      <section className="section"><div className="shell prose-grid"><div><h2>What you can expect</h2><p>We ask for accurate vehicle details, explain the quote and agree on a pickup time before dispatching a tow truck. There is no obligation to proceed.</p><p>Our mobile service covers {SITE.serviceArea}. Pickup availability depends on location and safe tow-truck access.</p></div><div className="fact-card"><h2>Contact the team</h2><p><strong>Phone</strong><br /><a href={SITE.phoneHref}>{SITE.phoneDisplay}</a></p><p><strong>Email</strong><br /><a href={`mailto:${SITE.email}`}>{SITE.email}</a></p><p><strong>Hours</strong><br />{SITE.hours.weekdays}<br />{SITE.hours.saturday}</p></div></div></section>
+      <section className="section"><div className="shell prose-grid"><div><h2>What you can expect</h2><p>We ask for accurate vehicle details, explain the quote and agree on a pickup time before dispatching a tow truck. There is no obligation to proceed.</p><p>Our mobile service covers {SITE.serviceArea}. Pickup availability depends on location and safe tow-truck access.</p></div><div className="fact-card"><h2>Contact the team</h2><p><strong>Phone</strong><br /><a href={SITE.phoneHref}>{SITE.phoneDisplay}</a></p><p><strong>Hours</strong><br />{SITE.hours.weekdays}<br />{SITE.hours.saturday}</p></div></div></section>
     </>
   );
 }
@@ -322,7 +322,7 @@ function ContactPage({ page }: { page: SitePage }) {
         <div className="shell page-hero__inner">
           <span className="eyebrow">Talk with our Brisbane team</span>
           <h1>{page.heading}</h1>
-          <p>Call, email or send the vehicle details below for a no-obligation quote.</p>
+          <p>Call or send the vehicle details below for a no-obligation quote.</p>
         </div>
       </section>
       <section className="section">
@@ -330,7 +330,6 @@ function ContactPage({ page }: { page: SitePage }) {
           <div className="contact-details">
             <h2>Contact details</h2>
             <p><strong>Phone</strong><br /><a href={SITE.phoneHref}>{SITE.phoneDisplay}</a></p>
-            <p><strong>Email</strong><br /><a href={`mailto:${SITE.email}`}>{SITE.email}</a></p>
             <p><strong>Service hours</strong><br />{SITE.hours.weekdays}<br />{SITE.hours.saturday}</p>
             <p>Our mobile pickup service covers {SITE.serviceArea}. Please tell us about restricted access, missing wheels or other recovery requirements.</p>
           </div>
@@ -343,7 +342,7 @@ function ContactPage({ page }: { page: SitePage }) {
 
 function TestimonialsPage() {
   return (
-    <section className="section page-listing"><div className="shell"><div className="section-heading section-heading--left"><span className="eyebrow">Customer feedback</span><h1>Customer reviews and feedback</h1><p>No customer testimonials are currently published on this page.</p></div><div className="prose-grid"><section><h2>Tell us about your experience</h2><p>If you have used the service, you can share feedback or raise a concern directly with the team. Include enough information to identify your enquiry and explain what you would like us to review.</p><p><a href={`mailto:${SITE.email}`}>Email {SITE.email}</a> or <a href={SITE.phoneHref}>call {SITE.phoneDisplay}</a>.</p></section><section className="fact-card"><h2>Considering a vehicle quote?</h2><p>Review the service details, ask about your pickup requirements and confirm the offer before deciding.</p><Link href="/frequently-asked-questions/">Questions to ask before booking</Link><p><Link href="/about-us/">About Ozi Cash for Cars</Link></p></section></div></div></section>
+    <section className="section page-listing"><div className="shell"><div className="section-heading section-heading--left"><span className="eyebrow">Customer feedback</span><h1>Customer reviews and feedback</h1><p>No customer testimonials are currently published on this page.</p></div><div className="prose-grid"><section><h2>Tell us about your experience</h2><p>If you have used the service, you can share feedback or raise a concern directly with the team. Include enough information to identify your enquiry and explain what you would like us to review.</p><p><a href={SITE.phoneHref}>Call {SITE.phoneDisplay}</a>.</p></section><section className="fact-card"><h2>Considering a vehicle quote?</h2><p>Review the service details, ask about your pickup requirements and confirm the offer before deciding.</p><Link href="/frequently-asked-questions/">Questions to ask before booking</Link><p><Link href="/about-us/">About Ozi Cash for Cars</Link></p></section></div></div></section>
   );
 }
 

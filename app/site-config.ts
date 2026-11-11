@@ -4,7 +4,6 @@ export const SITE = {
   phoneDisplay: "0421 719 431",
   phoneHref: "tel:0421719431",
   phoneSchema: "+61421719431",
-  email: "contact@ozicashforcars.com.au",
   serviceArea: "Brisbane, Logan, Ipswich, Gold Coast and surrounding areas",
   hours: {
     weekdays: "Monday to Friday, 8am–5pm",
@@ -17,9 +16,9 @@ export const HOME_TITLE = "Cash for Cars Brisbane | Check Your Pickup Terms";
 export const HOME_DESCRIPTION =
   "Request a Brisbane vehicle quote with your car's condition and pickup suburb. Review the offer, payment and towing terms before deciding to sell.";
 
-/** Visible privacy-policy sentence: "Last updated: 5 September 2026". */
-export const PRIVACY_POLICY_UPDATED_ISO = "2026-09-05";
-export const PRIVACY_POLICY_UPDATED_LABEL = "5 September 2026";
+/** Visible privacy-policy sentence: "Last updated: 11 November 2026". */
+export const PRIVACY_POLICY_UPDATED_ISO = "2026-11-11";
+export const PRIVACY_POLICY_UPDATED_LABEL = "11 November 2026";
 
 export const NON_BRISBANE_REGION_PATHS = new Set<string>([
   "/cash-for-cars-gold-coast/",

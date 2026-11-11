@@ -33,7 +33,7 @@ Copy `.env.example` to `.env.local` for local development. Keep preview, develop
 - `RESEND_API_KEY`: Resend API key
 - `QUOTE_FROM_EMAIL`: a sender on a domain verified in Resend, for example `Ozi Quotes <quotes@ozicashforcars.com.au>`
 - `RESEND_EMAIL_DOMAIN`: optional verified sender-domain fallback when `QUOTE_FROM_EMAIL` is not set
-- `QUOTE_TO_EMAIL`: destination inbox; defaults to `contact@ozicashforcars.com.au`
+- `QUOTE_TO_EMAIL`: destination inbox (required); it must be a mailbox that can receive mail
 - `QUOTE_EMAIL_TIMEOUT_MS`: optional provider timeout from 100–8,000 ms; defaults to 8,000 ms
 - `QUOTE_CLIENT_RATE_LIMIT`: optional 15-minute per-client budget; defaults to 5
 - `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`: optional Google Search Console HTML-tag token; when set, the root layout renders the matching `google-site-verification` meta tag

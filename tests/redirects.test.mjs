@@ -132,7 +132,7 @@ test("robots omits Host and sitemap lastmod is only the authored privacy date", 
   assert.match(robots, /Sitemap: https:\/\/www\.ozicashforcars\.com\.au\/sitemap\.xml/);
   assert.doesNotMatch(robots, /^Host:/m);
   const sitemap = await body("sitemap.xml");
-  assert.match(sitemap, /<loc>https:\/\/www\.ozicashforcars\.com\.au\/privacy-policy\/<\/loc>[\s\S]*<lastmod>2026-09-05/);
+  assert.match(sitemap, /<loc>https:\/\/www\.ozicashforcars\.com\.au\/privacy-policy\/<\/loc>[\s\S]*<lastmod>2026-11-11/);
   assert.equal(sitemap.match(/<lastmod>/g)?.length, 1);
   assert.doesNotMatch(sitemap, /testimonials|vehicles\/|sunshine-coast/);
 });

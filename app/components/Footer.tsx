@@ -14,8 +14,7 @@ export function Footer({ pathname = "/" }: { pathname?: string }) {
             Vehicle quotes and arranged pickup across {SITE.serviceArea}.
             Confirm availability, the final offer and towing terms for your vehicle before booking.
           </p>
-          <a href={SITE.phoneHref}>{SITE.phoneDisplay}</a><br />
-          <a href={`mailto:${SITE.email}`}>{SITE.email}</a>
+          <a href={SITE.phoneHref}>{SITE.phoneDisplay}</a>
         </section>
         <nav aria-labelledby="footer-services">
           <h2 id="footer-services">Services</h2>

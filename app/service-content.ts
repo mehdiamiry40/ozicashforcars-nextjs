@@ -299,5 +299,5 @@ export const GENERAL_FAQS: QuestionAnswer[] = [
   { question: "When will the vehicle be collected?", answer: "Ask for available collection windows for your suburb. Distance, safe access and truck scheduling must be confirmed; a quote request is not a confirmed booking." },
   { question: "Do I need a roadworthy certificate for an initial quote?", answer: "A certificate is not needed just to request a quote. Requirements at the point of sale depend on registration status and the buyer. Check current Queensland Government safety-certificate guidance and confirm which situation applies before handover." },
   { question: "How will I be paid?", answer: "Confirm the available payment method and timing with the team before accepting the offer. At handover, check that payment and the completed documents match the arrangement you agreed." },
-  { question: "What if the quote form does not work?", answer: "Call the phone number shown on this page or use the email address on the contact page. An error message does not confirm that a quote request has been accepted." },
+  { question: "What if the quote form does not work?", answer: "Call the phone number shown on this page. An error message does not confirm that a quote request has been accepted." },
 ];
