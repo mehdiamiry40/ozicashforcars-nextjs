@@ -14,6 +14,11 @@ export type RelatedServices = {
   parent?: { before: string; href: string; label: string; after: string };
   links: RelatedLink[];
 };
+/**
+ * A situation covered as its own section of a broader page. `id` is the
+ * section's anchor: other pages link to it, so it has to stay the same.
+ */
+export type SituationSection = { id: string; heading: string; intro: string; points: ContentSection[] };
 export type ServiceContent = {
   heading: string;
   /** Replaces the default "<heading> | Ozi Cash for Cars" page title. */
@@ -21,6 +26,8 @@ export type ServiceContent = {
   description: string;
   intro: string;
   sections: ContentSection[];
+  /** Rendered after `sections` and the related block, each under its own anchor. */
+  situations?: SituationSection[];
   faqs: QuestionAnswer[];
   relatedGuide: string;
   related?: RelatedServices;
@@ -38,8 +45,9 @@ const TRUCKS_LINK: RelatedLink = {
   label: "Cash for trucks and commercial vehicles",
   text: "The GVM, body type and site access details needed for a truck enquiry.",
 };
+const REMOVAL_HUB_PATH = "/car-removal-brisbane/";
 const REMOVAL_HUB_LINK: RelatedLink = {
-  href: "/car-removal-brisbane/",
+  href: REMOVAL_HUB_PATH,
   label: "Car removal in Brisbane",
   text: "Parking access, loading and booking a collection time for any vehicle.",
 };
@@ -48,29 +56,52 @@ const USED_CAR_REMOVAL_LINK: RelatedLink = {
   label: "Used car removal after an agreed sale",
   text: "Registration, personal data, keys and the final handover check.",
 };
+const TOWING_TERMS_LINK: RelatedLink = {
+  href: "/free-car-removals/",
+  label: "Car removal towing terms",
+  text: "What standard towing covers and which recoveries need separate agreement.",
+};
 
-// /car-removal-brisbane/ is the general removal page. Each page below covers one
-// situation, links up to it and across to the others.
+// /car-removal-brisbane/ is the one page for car removal. Until 19 November 2026
+// junk, scrap, old and unwanted car removal were four separate pages; Search
+// Console showed them appearing for the same searches as the Brisbane page, so
+// each is now a section of it and the old URLs redirect there (MERGED_PAGES in
+// lib/region-rules.mjs). The ids below are those sections' anchors.
+export const REMOVAL_SECTION_IDS = {
+  junk: "junk-cars",
+  scrap: "scrap-cars",
+  old: "old-cars",
+  unwanted: "unwanted-cars",
+} as const;
+
+export function removalSectionHref(section: keyof typeof REMOVAL_SECTION_IDS) {
+  return `${REMOVAL_HUB_PATH}#${REMOVAL_SECTION_IDS[section]}`;
+}
+
+// The Brisbane page's own list: its four sections first, then the two removal
+// pages that stay separate because they answer a different question.
 const REMOVAL_SITUATION_LINKS: RelatedLink[] = [
-  { href: "/junk-car-removals/", label: "Junk car removal for neglected cars", text: "Seized wheels, overgrown access and loose parts on a car left sitting." },
-  { href: "/scrap-car-removals/", label: "Scrap car and shell removal", text: "Missing components, loading hazards and disposal records for a stripped vehicle." },
-  { href: "/old-car-removals/", label: "Old car removal after long storage", text: "Flat tyres, seized brakes, finding keys and estate vehicles." },
-  { href: "/unwanted-car-removals/", label: "Unwanted car removal from a property", text: "Who can approve the sale, who gives access and when the space is needed." },
+  { href: removalSectionHref("junk"), label: "Junk car removal for neglected cars", text: "Seized wheels, overgrown access and loose parts on a car left sitting." },
+  { href: removalSectionHref("scrap"), label: "Scrap car and shell removal", text: "Missing components, loading hazards and disposal records for a stripped vehicle." },
+  { href: removalSectionHref("old"), label: "Old car removal after long storage", text: "Flat tyres, seized brakes, finding keys and estate vehicles." },
+  { href: removalSectionHref("unwanted"), label: "Unwanted car removal from a property", text: "Who can approve the sale, who gives access and when the space is needed." },
   USED_CAR_REMOVAL_LINK,
-  { href: "/free-car-removals/", label: "Car removal towing terms", text: "What standard towing covers and which recoveries need separate agreement." },
+  TOWING_TERMS_LINK,
 ];
 
-function removalSituation(path: string, intro: string, extraLinks: RelatedLink[] = []): RelatedServices {
+// The related block on a removal page that is not the Brisbane page. It links up
+// to the Brisbane page once, in a sentence, and across to the other separate page.
+function relatedRemoval(path: string, intro: string, extraLinks: RelatedLink[] = []): RelatedServices {
   return {
     heading: "Related car removal pages",
     intro,
     parent: {
-      before: "For parking access, loading and booking on any vehicle, start with ",
-      href: REMOVAL_HUB_LINK.href,
+      before: "For parking access, loading and booking on any vehicle, including a junk, scrap, long-stored or unwanted car, start with ",
+      href: REMOVAL_HUB_PATH,
       label: "car removal in Brisbane",
       after: ".",
     },
-    links: [...REMOVAL_SITUATION_LINKS.filter((link) => link.href !== path), ...extraLinks],
+    links: [...[USED_CAR_REMOVAL_LINK, TOWING_TERMS_LINK].filter((link) => link.href !== path), ...extraLinks],
   };
 }
 
@@ -217,15 +248,69 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { title: "Explain how the car can be loaded", text: "State whether it has keys, inflated tyres, steering and wheels that turn. A car that will not start may still roll; a car with seized wheels needs a different assessment. Discuss any unusual recovery requirement and its cost before confirming collection." },
       { title: "Agree on the handover plan", text: "Confirm an available collection window, the person attending and the documents to prepare. Keep the access route clear where safe. If parking or access changes after booking, contact the team so the pickup arrangement can be reviewed." },
     ],
+    // Each situation was its own page until 19 November 2026. A sentence was left
+    // out only where the three sections above, or another situation, already say it.
+    situations: [
+      {
+        id: REMOVAL_SECTION_IDS.junk,
+        heading: "Junk car removal for neglected cars",
+        intro: "Removing a neglected car often depends on what has changed around it: vegetation, flat tyres, seized wheels or stored items blocking the way.",
+        points: [
+          { title: "Assess the site without disturbing the car", text: "From a safe position, note whether a truck can reach the vehicle and whether fences, sheds or other cars obstruct it. Tell us if it is on soft ground or has sunk during storage. Do not jack up a deteriorated shell or enter an unsafe space to inspect it." },
+          { title: "Identify loading obstacles", text: "Explain missing wheels, disconnected suspension, locked steering and whether keys are available. Include loose vehicle components you want collected. These details help determine whether the enquiry involves a straightforward tow or recovery that needs separate arrangements." },
+          { title: "Separate the vehicle from a site clean-up", text: "Remove belongings where safe and identify any unrelated waste before accepting terms. Confirm exactly what is included in the pickup. If the access route cannot be cleared safely, discuss it with the team first." },
+        ],
+      },
+      {
+        id: REMOVAL_SECTION_IDS.scrap,
+        heading: "Scrap car and shell removal",
+        intro: "A scrap vehicle can require more preparation than a complete car. The collector needs to know what remains, what can move and whether any damage affects safe loading.",
+        points: [
+          { title: "Describe the shell and remaining components", text: "List missing wheels, engine, transmission or suspension parts and say whether panels or sharp edges are loose. Include a safe photo of the vehicle's current position. Do not describe a dismantled shell as a rolling car unless its wheels and structure support that description." },
+          { title: "Disclose potential handling issues", text: "Mention leaks, damaged fuel systems, loose batteries and any known hazardous material. Do not place extra chemicals, scrap from other projects or household waste inside the vehicle. Ask what can be included and how any existing material should be handled." },
+          { title: "Confirm release and collection records", text: "Agree on the vehicle offer, collection terms and proof of ownership requirements. If you need evidence of disposal, ask which record can be provided and retain a copy of the sale paperwork. Registration and plate arrangements should be confirmed before handover." },
+        ],
+      },
+      {
+        id: REMOVAL_SECTION_IDS.old,
+        heading: "Old car removal after long storage",
+        intro: "An older car that has sat unused may be harder to move than it appears. Share its storage history so collection can be planned without relying on it being road-ready.",
+        points: [
+          { title: "Describe the effects of storage", text: "Tell us how long the car has been parked, whether tyres are flat and whether brakes or steering may be seized. Note any visible rust or fluid leakage. Avoid trying to start a long-stored car simply to demonstrate that it runs for the enquiry." },
+          { title: "Find the handover essentials early", text: "Look for keys and documents showing your authority to sell. If the car belongs to someone else or forms part of an estate, explain your role and confirm the required authority before arranging removal. Keep personal keepsakes separate from items included in the sale." },
+          { title: "Plan removal from its current position", text: "Describe garage clearance, gate width and the space available around the car. Where moving the car would be unsafe, leave it in place and ask how the collection team would approach it." },
+        ],
+      },
+      {
+        id: REMOVAL_SECTION_IDS.unwanted,
+        heading: "Unwanted car removal from a property",
+        intro: "Clearing an unwanted car from a property involves the vehicle owner as well as the pickup site. Establish who can approve the sale and who can provide access.",
+        points: [
+          { title: "Confirm the right to remove and sell it", text: "If the car is yours, prepare evidence of ownership or authority. If it belongs to a tenant, neighbour, relative or previous occupant, do not assume control of the property gives you the right to sell it. Resolve authority before requesting a collection booking." },
+          { title: "Coordinate with the property contact", text: "Tell us whether the car is at a home, workplace or storage site and who can unlock gates or arrange access. Mention body-corporate or site restrictions where relevant. Ensure the person attending understands which vehicle and items are included in the agreed sale." },
+          { title: "Make the timing practical", text: "If you need space before a move or property handover, share the preferred date and ask which collection windows are available. Do not assume a deadline is booked until it is confirmed." },
+        ],
+      },
+    ],
+    // The first three questions are general. The rest came across with the four
+    // sections, two each, in the order the sections appear.
     faqs: [
       { question: "Can a car be removed from an underground garage?", answer: "Provide the height clearance, entry layout and vehicle condition before booking. Access must be assessed; collection from every garage is not guaranteed." },
       { question: "Can I choose any collection time?", answer: "Ask for available windows for your suburb and vehicle. Distance, access and truck scheduling need to be confirmed before a booking is agreed." },
       { question: "Can a junk car that does not run be removed?", answer: "Describe the fault and whether the car rolls and steers, and mention missing keys or wheels. The team assesses the vehicle and its loading requirements before confirming a Brisbane pickup." },
+      { question: "Can I book before clearing overgrown access?", answer: "Explain the overgrowth and provide safe photos first. The team needs to assess access; you should not assume a truck can reach a car hidden behind obstacles." },
+      { question: "What if there are no keys?", answer: "Disclose missing keys and whether steering and wheels are locked. The team will need to confirm the loading plan and the ownership documents required." },
+      { question: "Can a shell without wheels be collected?", answer: "Supply photos and details of missing parts and access. Suitability and recovery equipment must be confirmed for that shell; a standard rolling-vehicle pickup should not be assumed." },
+      { question: "Can I add other scrap metal to the pickup?", answer: "Discuss it separately before accepting the arrangement. A quote for one vehicle does not automatically include other material or waste." },
+      { question: "Do I have to get a long-stored car running?", answer: "Describe it as stored and provide the known condition. Do not attempt unsafe repairs or starting procedures just to arrange an assessment." },
+      { question: "Can an estate vehicle be removed straight away?", answer: "Explain the circumstances and establish who can authorise its sale and release. Required authority should be confirmed before any booking." },
+      { question: "Can you take an apparently abandoned car from my property?", answer: "Do not authorise a sale or removal without establishing the legal right to do so. Seek the relevant owner's or authority's guidance, and explain the circumstances before making an enquiry." },
+      { question: "Can someone else attend the pickup for me?", answer: "Discuss this before booking and ask which written authority and identification are required. The attending person should know the agreed handover terms." },
     ],
     relatedGuide: "/blog/how-to-get-cash-for-cars-in-brisbane-qld/",
     related: {
       heading: "Car removal for a specific situation",
-      intro: "This page covers access, loading and booking for any car removal in Brisbane. If one of these situations matches yours, that page goes into the detail.",
+      intro: "This page covers access, loading and booking for any car removal in Brisbane. The first four situations have their own section further down this page. Towing terms and the handover of a usable car have their own pages.",
       links: REMOVAL_SITUATION_LINKS,
     },
   },
@@ -259,55 +344,7 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "How can I compare offers with different towing terms?", answer: "Ask each buyer for the vehicle amount and any collection charges, then compare the net amount and agreed pickup requirements." },
     ],
     relatedGuide: "/blog/sell-your-car-fast-and-easy-in-brisbane/",
-    related: removalSituation("/free-car-removals/", "This page is about what the towing terms cover."),
-  },
-  "/junk-car-removals/": {
-    heading: "Junk Car Removal for Neglected Cars",
-    description: "Prepare a neglected or incomplete car for a collection assessment. Explain seized parts, surrounding obstacles and any loose vehicle components.",
-    intro: "Removing a neglected car often depends on what has changed around it: vegetation, flat tyres, seized wheels or stored items blocking the way.",
-    sections: [
-      { title: "Assess the site without disturbing the car", text: "From a safe position, note whether a truck can reach the vehicle and whether fences, sheds or other cars obstruct it. Tell us if it is on soft ground or has sunk during storage. Do not jack up a deteriorated shell or enter an unsafe space to inspect it." },
-      { title: "Identify loading obstacles", text: "Explain missing wheels, disconnected suspension, locked steering and whether keys are available. Include loose vehicle components you want collected. These details help determine whether the enquiry involves a straightforward tow or recovery that needs separate arrangements." },
-      { title: "Separate the vehicle from a site clean-up", text: "Remove belongings where safe and identify any unrelated waste before accepting terms. Confirm exactly what is included in the pickup, who will attend and what ownership evidence is required. If the access route cannot be cleared safely, discuss it with the team first." },
-    ],
-    faqs: [
-      { question: "Can I book before clearing overgrown access?", answer: "Explain the overgrowth and provide safe photos first. The team needs to assess access; you should not assume a truck can reach a car hidden behind obstacles." },
-      { question: "What if there are no keys?", answer: "Disclose missing keys and whether steering and wheels are locked. The team will need to confirm the loading plan and the ownership documents required." },
-    ],
-    relatedGuide: "/blog/how-to-get-cash-for-cars-in-brisbane-qld/",
-    related: removalSituation("/junk-car-removals/", "This page is about a car that has deteriorated where it sits."),
-  },
-  "/old-car-removals/": {
-    heading: "Old Car Removal After Long Storage",
-    description: "Arrange an assessment for an old car that has been stored or taken off the road. Check access, keys, paperwork and safe preparation.",
-    intro: "An older car that has sat unused may be harder to move than it appears. Share its storage history so collection can be planned without relying on it being road-ready.",
-    sections: [
-      { title: "Describe the effects of storage", text: "Tell us how long the car has been parked, whether tyres are flat and whether brakes or steering may be seized. Note any visible rust or fluid leakage. Avoid trying to start a long-stored car simply to demonstrate that it runs for the enquiry." },
-      { title: "Find the handover essentials early", text: "Look for keys and documents showing your authority to sell. If the car belongs to someone else or forms part of an estate, explain your role and confirm the required authority before arranging removal. Keep personal keepsakes separate from items included in the sale." },
-      { title: "Plan removal from its current position", text: "Describe garage clearance, gate width and the space available around the car. Confirm who will open the property and attend the handover. Where moving the car would be unsafe, leave it in place and ask how the collection team would approach it." },
-    ],
-    faqs: [
-      { question: "Do I have to get a long-stored car running?", answer: "Describe it as stored and provide the known condition. Do not attempt unsafe repairs or starting procedures just to arrange an assessment." },
-      { question: "Can an estate vehicle be removed straight away?", answer: "Explain the circumstances and establish who can authorise its sale and release. Required authority should be confirmed before any booking." },
-    ],
-    relatedGuide: "/blog/selling-your-car-without-a-roadworthy-certificate/",
-    related: removalSituation("/old-car-removals/", "This page is about an older car that has been parked for a long time."),
-  },
-  "/scrap-car-removals/": {
-    heading: "Scrap Car and Shell Removal",
-    description: "Plan collection of a scrap vehicle or shell. Disclose missing components, loading hazards and the paperwork you need at handover.",
-    intro: "A scrap vehicle can require more preparation than a complete car. The collector needs to know what remains, what can move and whether any damage affects safe loading.",
-    sections: [
-      { title: "Describe the shell and remaining components", text: "List missing wheels, engine, transmission or suspension parts and say whether panels or sharp edges are loose. Include a safe photo of the vehicle's current position. Do not describe a dismantled shell as a rolling car unless its wheels and structure support that description." },
-      { title: "Disclose potential handling issues", text: "Mention leaks, damaged fuel systems, loose batteries and any known hazardous material. Do not place extra chemicals, scrap from other projects or household waste inside the vehicle. Ask what can be included and how any existing material should be handled." },
-      { title: "Confirm release and collection records", text: "Agree on the vehicle offer, collection terms and proof of ownership requirements. If you need evidence of disposal, ask which record can be provided and retain a copy of the sale paperwork. Registration and plate arrangements should be confirmed before handover." },
-    ],
-    faqs: [
-      { question: "Can a shell without wheels be collected?", answer: "Supply photos and details of missing parts and access. Suitability and recovery equipment must be confirmed for that shell; a standard rolling-vehicle pickup should not be assumed." },
-      { question: "Can I add other scrap metal to the pickup?", answer: "Discuss it separately before accepting the arrangement. A quote for one vehicle does not automatically include other material or waste." },
-    ],
-    relatedGuide: "/blog/a-guide-to-understanding-cash-for-cars-brisbane/",
-    related: removalSituation("/scrap-car-removals/", "This page is about a scrap vehicle or shell with parts missing."),
+    related: relatedRemoval("/free-car-removals/", "This page is about what the towing terms cover."),
   },
   "/sell-my-car/": {
     heading: "Sell My Car in Brisbane",
@@ -328,22 +365,6 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       intro: "This page covers the steps common to every sale. These pages go further for a particular vehicle or situation.",
       links: [USED_CARS_LINK, TRUCKS_LINK, REMOVAL_HUB_LINK],
     },
-  },
-  "/unwanted-car-removals/": {
-    heading: "Unwanted Car Removal from a Property",
-    description: "Clear an unwanted car from a home, workplace or storage site. Confirm who can approve the sale, who provides access and when collection can happen.",
-    intro: "Clearing an unwanted car from a property involves the vehicle owner as well as the pickup site. Establish who can approve the sale and who can provide access.",
-    sections: [
-      { title: "Confirm the right to remove and sell it", text: "If the car is yours, prepare evidence of ownership or authority. If it belongs to a tenant, neighbour, relative or previous occupant, do not assume control of the property gives you the right to sell it. Resolve authority before requesting a collection booking." },
-      { title: "Coordinate with the property contact", text: "Tell us whether the car is at a home, workplace or storage site and who can unlock gates or arrange access. Mention body-corporate or site restrictions where relevant. Ensure the person attending understands which vehicle and items are included in the agreed sale." },
-      { title: "Make the timing practical", text: "If you need space before a move or property handover, share the preferred date and ask which collection windows are available. Do not assume a deadline is booked until it is confirmed. Update the team promptly if the vehicle moves or access changes." },
-    ],
-    faqs: [
-      { question: "Can you take an apparently abandoned car from my property?", answer: "Do not authorise a sale or removal without establishing the legal right to do so. Seek the relevant owner's or authority's guidance, and explain the circumstances before making an enquiry." },
-      { question: "Can someone else attend the pickup for me?", answer: "Discuss this before booking and ask which written authority and identification are required. The attending person should know the agreed handover terms." },
-    ],
-    relatedGuide: "/blog/how-to-get-cash-for-cars-in-brisbane-qld/",
-    related: removalSituation("/unwanted-car-removals/", "This page is about who can approve a sale and give access to the property."),
   },
   "/unwanted-truck-removals/": {
     heading: "Unwanted Truck Removal",
@@ -374,7 +395,7 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "What personal data should I remove from the car?", answer: "Check the car's own instructions for removing paired phones, saved addresses and connected accounts. Remove physical belongings and toll tags as well." },
     ],
     relatedGuide: "/blog/selling-your-car-without-a-roadworthy-certificate/",
-    related: removalSituation("/used-car-removals/", "This page is about handing over a usable car once a sale is agreed.", [USED_CARS_LINK]),
+    related: relatedRemoval("/used-car-removals/", "This page is about handing over a usable car once a sale is agreed.", [USED_CARS_LINK]),
   },
 };
 

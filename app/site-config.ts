@@ -34,6 +34,8 @@ export const PRIMARY_LINKS = [
   { href: "/contact-us/", label: "Contact" },
 ] as const;
 
+// Junk, scrap, old and unwanted car removal are sections of /car-removal-brisbane/
+// (merged 19 November 2026), so that one link stands for all of them here.
 export const SERVICE_LINKS = [
   { href: "/cash-for-junk-cars/", label: "Junk cars" },
   { href: "/cash-for-damaged-cars/", label: "Damaged cars" },
@@ -47,10 +49,6 @@ export const SERVICE_LINKS = [
   { href: "/sell-my-car/", label: "Sell my car" },
   { href: "/car-recycling-brisbane/", label: "Car recycling enquiries" },
   { href: "/free-car-removals/", label: "Included towing terms" },
-  { href: "/junk-car-removals/", label: "Junk car removal" },
-  { href: "/old-car-removals/", label: "Old car removal" },
-  { href: "/scrap-car-removals/", label: "Scrap car removal" },
-  { href: "/unwanted-car-removals/", label: "Unwanted car removal" },
   { href: "/unwanted-truck-removals/", label: "Unwanted truck removal" },
   { href: "/used-car-removals/", label: "Used car removal" },
 ] as const;

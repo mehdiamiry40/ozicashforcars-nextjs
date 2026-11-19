@@ -255,7 +255,7 @@ export function assertDocumentsDiscovered(projectRoot, documents) {
   }
   if (leaked.length) {
     throw new Error(
-      `Redirected suburb URL was still prerendered, first ${leaked[0]}. Those URLs must 301 to their regional page.`,
+      `Redirected URL was still prerendered, first ${leaked[0]}. Suburb URLs must 301 to their regional page and merged pages to the page that took them in.`,
     );
   }
 }

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { blogArticles, locationPagesForHub, SitePage } from "../site-data";
 import { NON_BRISBANE_REGION_PATHS, PRIVACY_POLICY_UPDATED_LABEL, REGION_LINKS, SERVICE_GROUPS, SERVICE_LINKS, SITE } from "../site-config";
 import { ARTICLE_CONTENT } from "../article-content";
-import { COVERED_TOWING_TERMS, FREE_REMOVAL_LABEL_CAUTION, GENERAL_FAQS, SERVICE_CONTENT, type QuestionAnswer, type RelatedServices } from "../service-content";
+import { COVERED_TOWING_TERMS, FREE_REMOVAL_LABEL_CAUTION, GENERAL_FAQS, SERVICE_CONTENT, removalSectionHref, type QuestionAnswer, type RelatedServices, type SituationSection } from "../service-content";
 import { QuoteForm } from "./QuoteForm";
 
 const HERO_IMAGE = "/wp-content/uploads/2021/08/page-banner1.jpg";
@@ -86,8 +86,10 @@ function HomeGuideSection() {
           </p>
           <p>
             If the vehicle mainly needs collecting, <Link href="/car-removal-brisbane/">car removal in Brisbane</Link> covers
-            parking access, loading and booking a time. Two situations have their own pages: <Link href="/scrap-car-removals/">scrap car and shell removal</Link> for
-            a vehicle with parts missing, and <Link href="/unwanted-car-removals/">unwanted car removal from a property</Link> when
+            parking access, loading and booking a time. The same page has a section
+            on <Link href={removalSectionHref("scrap")}>scrap car and shell removal</Link> for
+            a vehicle with parts missing, and one
+            on <Link href={removalSectionHref("unwanted")}>unwanted car removal from a property</Link> when
             someone else has to approve the sale or provide access.
           </p>
           <p>
@@ -222,6 +224,26 @@ function RelatedServicesBlock({ related }: { related: RelatedServices }) {
   );
 }
 
+// Situations that used to be separate pages. Each keeps its own anchor so the
+// pages that link here can point at the part that applies.
+function SituationSections({ situations }: { situations: SituationSection[] }) {
+  return (
+    <section className="section">
+      <div className="shell">
+        {situations.map((situation) => (
+          <section className="situation" id={situation.id} key={situation.id}>
+            <h2>{situation.heading}</h2>
+            <p className="situation__intro">{situation.intro}</p>
+            <div className="card-grid">
+              {situation.points.map((point) => <div className="guide-card" key={point.title}><h3>{point.title}</h3><p>{point.text}</p></div>)}
+            </div>
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ServicePage({ page }: { page: SitePage }) {
   const content = SERVICE_CONTENT[page.path];
   if (!content) throw new Error(`Missing authored service content: ${page.path}`);
@@ -235,6 +257,7 @@ function ServicePage({ page }: { page: SitePage }) {
         </div>
         {content.related && <RelatedServicesBlock related={content.related} />}
       </div></section>
+      {content.situations && <SituationSections situations={content.situations} />}
       <FaqSection faqs={content.faqs} heading="Questions about this service" />
       {guide && <section className="section section--muted"><div className="shell"><h2>Before you book</h2><p>{guide.description}</p><Link href={guide.path}>{guide.heading} →</Link><p><Link href="/#services">Compare other vehicle services</Link> · <Link href="/frequently-asked-questions/">Read all common questions</Link></p></div></section>}
       <AreaSection page={page} />

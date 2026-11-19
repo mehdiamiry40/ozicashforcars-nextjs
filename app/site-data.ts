@@ -1,5 +1,5 @@
 import rawIndex from "../data/site-index.json";
-import { REGION_HUB_NAMES, REGION_RULES } from "../lib/region-rules.mjs";
+import { MERGED_PAGES, REGION_HUB_NAMES, REGION_RULES } from "../lib/region-rules.mjs";
 import { HOME_DESCRIPTION, HOME_TITLE, SITE } from "./site-config";
 import { ARTICLE_CONTENT } from "./article-content";
 import { SERVICE_CONTENT } from "./service-content";
@@ -201,11 +201,15 @@ function modelPage(pathname: string, raw: RawPage): SitePage {
   };
 }
 
-export const allPages = Object.entries(index.pages).map(([pathname, raw]) =>
-  modelPage(pathname, raw),
-);
+// The inventory keeps every known legacy path. A page merged into another one is
+// not modelled: route policy redirects its URL before any page is looked up, so
+// it is never generated, linked from a list or added to the sitemap.
+export const allPages = Object.entries(index.pages)
+  .filter(([pathname]) => !(pathname in MERGED_PAGES))
+  .map(([pathname, raw]) => modelPage(pathname, raw));
 
-// Preserve known legacy paths and existing suburb indexing policy; editorial changes do not select redirects.
+// Preserve known legacy paths and existing suburb indexing policy. Redirects are selected in
+// lib/region-rules.mjs (the suburb rules and MERGED_PAGES); editorial content does not select them.
 const pagesByPath = new Map(allPages.map((page) => [page.path, page]));
 
 export function getPage(pathname: string) {
