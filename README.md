@@ -1,12 +1,12 @@
 # Ozi Cash for Cars
 
-A production-focused Next.js rebuild of the Ozi Cash for Cars website. It keeps all 282 known public routes while replacing the former WordPress snapshot runtime with fast, accessible, statically generated pages. The 242 legacy suburb URLs permanently redirect to the regional page they already canonicalised to; the other known routes stay directly reachable.
+A production-focused Next.js rebuild of the Ozi Cash for Cars website. It keeps all 282 known public routes while replacing the former WordPress snapshot runtime with fast, accessible, statically generated pages. The 242 legacy suburb URLs permanently redirect to the regional page they already canonicalised to, and four narrow removal pages permanently redirect to `/car-removal-brisbane/`, which they were merged into on 19 November 2026 ([what and why](docs/LAUNCH_READINESS.md#removal-pages-merged-on-19-november-2026)). The other 36 known routes stay directly reachable.
 
 ## What is included
 
 - Responsive, keyboard-accessible page templates and quote forms
 - Distinct service guides without unsupported maximum-offer, one-hour or testimonial claims
-- Indexable service and regional pages, with the 242 legacy suburb URLs permanently redirected to their regional page
+- Indexable service and regional pages, with the 242 legacy suburb URLs permanently redirected to their regional page and the four merged removal pages redirected to `/car-removal-brisbane/`, each in one hop
 - Organization, page-specific WebPage, Service, BlogPosting and breadcrumb structured data
 - Clean sitemap and robots rules
 - Permanent redirects for known legacy broken URLs

@@ -3,7 +3,7 @@ import { classifyPaths } from "../lib/region-rules.mjs";
 
 const root = new URL("../", import.meta.url);
 const index = JSON.parse(await readFile(new URL("data/site-index.json", root), "utf8"));
-const { redirects, content } = classifyPaths(Object.keys(index.pages));
+const { redirects, merged, content } = classifyPaths(Object.keys(index.pages));
 const lines = ["old_url,candidate_status,candidate_indexability,candidate_canonical,current_action,search_clicks,search_impressions,organic_leads,approved_decision,decision_owner"];
 let excluded = 0;
 const rows = [];
@@ -25,7 +25,7 @@ for (const [path, hub] of [...redirects].sort(([left], [right]) => left.localeCo
     "301",
     "redirect",
     `https://www.ozicashforcars.com.au${hub}`,
-    "Permanent redirect to the regional page",
+    merged.has(path) ? "Permanent redirect to the page it was merged into" : "Permanent redirect to the regional page",
   ]);
 }
 rows.sort((left, right) => left[0].localeCompare(right[0]));

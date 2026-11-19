@@ -8,8 +8,9 @@ const inventory = JSON.parse(await readFile(new URL("data/site-index.json", root
 const origin = "https://www.ozicashforcars.com.au";
 const classified = classifyPaths(Object.keys(inventory.pages));
 assert.equal(Object.keys(inventory.pages).length, 282);
-assert.equal(classified.redirects.size, 242);
-assert.equal(classified.content.length, 40);
+assert.equal(classified.redirects.size, 246);
+assert.equal(classified.merged.size, 4);
+assert.equal(classified.content.length, 36);
 const pages = new Map(await Promise.all(classified.content.map(async (path) => {
   const filename = path === "/" ? "index" : path.slice(1, -1);
   const html = await readFile(new URL(`.next/server/app/${filename}.html`, root), "utf8");
@@ -20,7 +21,7 @@ const pages = new Map(await Promise.all(classified.content.map(async (path) => {
   return [path, { html, main, graph, indexable: !/<meta name="robots" content="[^"]*noindex/.test(html) }];
 })));
 
-test("legacy suburb URLs are redirects, not rendered pages", async () => {
+test("legacy suburb URLs and merged pages are redirects, not rendered pages", async () => {
   for (const path of classified.redirects.keys()) {
     const filename = path.slice(1, -1);
     await assert.rejects(access(new URL(`.next/server/app/${filename}.html`, root)), { code: "ENOENT" });
@@ -83,13 +84,15 @@ test("the homepage links to the core service pages from sentences, not only from
     "/cash-for-used-cars/": "Cash for used cars in Brisbane",
     "/cash-for-trucks/": "cash for trucks and commercial vehicles",
     "/car-removal-brisbane/": "car removal in Brisbane",
-    "/scrap-car-removals/": "scrap car and shell removal",
-    "/unwanted-car-removals/": "unwanted car removal from a property",
+    "/car-removal-brisbane/#scrap-cars": "scrap car and shell removal",
+    "/car-removal-brisbane/#unwanted-cars": "unwanted car removal from a property",
     "/cash-for-cars-brisbane-northern-suburbs/": "cash for cars in Brisbane's northern suburbs",
   };
-  for (const [path, anchor] of Object.entries(expected)) {
-    assert.equal(pages.get(path).indexable, true, path);
-    assert.equal(links.get(path), anchor, path);
+  for (const [href, anchor] of Object.entries(expected)) {
+    const [path, fragment] = href.split("#");
+    assert.equal(pages.get(path).indexable, true, href);
+    assert.equal(links.get(href), anchor, href);
+    if (fragment) assert.match(pages.get(path).main, new RegExp(`<section\\b[^>]*\\bid="${fragment}"`), href);
   }
   for (const path of ["/cash-for-cars-gold-coast/", "/cash-for-cars-brisbane-northern-suburbs/"]) {
     assert.doesNotMatch(pages.get(path).main, /id="vehicle-guide"/, path);
@@ -111,9 +114,51 @@ test("the used-cars page names Brisbane in its title, heading, description and o
   }
 });
 
-test("one page targets car removal in Brisbane and each narrower removal page links up to it", () => {
-  const hub = "/car-removal-brisbane/";
-  const narrower = ["/junk-car-removals/", "/scrap-car-removals/", "/old-car-removals/", "/unwanted-car-removals/", "/used-car-removals/", "/free-car-removals/"];
+const REMOVAL_PAGE = "/car-removal-brisbane/";
+const MERGED_REMOVAL_PAGES = ["/junk-car-removals/", "/scrap-car-removals/", "/old-car-removals/", "/unwanted-car-removals/"];
+// The sections that replaced the four pages, with the guidance and the questions each one brought.
+const REMOVAL_SECTIONS = [
+  {
+    id: "junk-cars",
+    heading: "Junk car removal for neglected cars",
+    points: ["Assess the site without disturbing the car", "Identify loading obstacles", "Separate the vehicle from a site clean-up"],
+    guidance: [/soft ground or has sunk during storage/, /missing wheels, disconnected suspension, locked steering/, /unrelated waste before accepting terms/],
+    questions: ["Can I book before clearing overgrown access?", "What if there are no keys?"],
+  },
+  {
+    id: "scrap-cars",
+    heading: "Scrap car and shell removal",
+    points: ["Describe the shell and remaining components", "Disclose potential handling issues", "Confirm release and collection records"],
+    guidance: [/missing wheels, engine, transmission or suspension parts/, /leaks, damaged fuel systems, loose batteries/, /evidence of disposal/],
+    questions: ["Can a shell without wheels be collected?", "Can I add other scrap metal to the pickup?"],
+  },
+  {
+    id: "old-cars",
+    heading: "Old car removal after long storage",
+    points: ["Describe the effects of storage", "Find the handover essentials early", "Plan removal from its current position"],
+    guidance: [/how long the car has been parked/, /keys and documents showing your authority to sell/, /forms part of an estate/, /garage clearance, gate width/],
+    questions: ["Do I have to get a long-stored car running?", "Can an estate vehicle be removed straight away?"],
+  },
+  {
+    id: "unwanted-cars",
+    heading: "Unwanted car removal from a property",
+    points: ["Confirm the right to remove and sell it", "Coordinate with the property contact", "Make the timing practical"],
+    guidance: [/tenant, neighbour, relative or previous occupant/, /who can unlock gates or arrange access/, /Do not assume a deadline is booked until it is confirmed/],
+    questions: ["Can you take an apparently abandoned car from my property?", "Can someone else attend the pickup for me?"],
+  },
+];
+
+function sectionById(main, id) {
+  const start = main.search(new RegExp(`<section\\b[^>]*\\bid="${id}"`));
+  if (start < 0) return null;
+  const rest = main.slice(start + 1);
+  const next = rest.search(/<section\b/);
+  return main.slice(start, next < 0 ? undefined : start + 1 + next);
+}
+
+test("one page covers car removal in Brisbane, and the two removal pages that stay separate link up to it", () => {
+  const hub = REMOVAL_PAGE;
+  const narrower = ["/used-car-removals/", "/free-car-removals/"];
   const all = [hub, ...narrower];
   assert.equal(new Set(all.map(headTitle)).size, all.length, "Removal pages share a title");
   assert.equal(new Set(all.map(mainHeading)).size, all.length, "Removal pages share a heading");
@@ -122,8 +167,9 @@ test("one page targets car removal in Brisbane and each narrower removal page li
     assert.ok(headTitle(path).length <= 60, `${path} title is ${headTitle(path).length} characters`);
     assert.doesNotMatch(headTitle(path), /…/, path);
   }
-  assert.match(headTitle(hub), /^Car Removal Brisbane \| /);
+  assert.equal(headTitle(hub), "Car Removal Brisbane | Junk, Scrap and Unwanted Cars");
   assert.equal(mainHeading(hub), "Car Removal Brisbane");
+  assert.match(pages.get(hub).html, /<meta name="description" content="[^"]*junk, scrap, old or unwanted car/);
   assert.match(text(pages.get(hub).main), /junk car/);
   const hubLinks = anchors(pages.get(hub).main);
   for (const path of narrower) {
@@ -136,6 +182,58 @@ test("one page targets car removal in Brisbane and each narrower removal page li
     }
   }
   assert.equal(new Set(narrower.map((path) => hubLinks.get(path))).size, narrower.length, "Removal pages share an anchor");
+  assert.equal(anchors(pages.get("/sell-my-car/").main).get(hub), "Car removal in Brisbane");
+});
+
+test("the Brisbane removal page carries the four merged pages as anchored sections, with their guidance and questions", () => {
+  const { main } = pages.get(REMOVAL_PAGE);
+  assert.equal(main.match(/<h1\b/g)?.length, 1, "The merged page must keep exactly one H1");
+  const hubLinks = anchors(main);
+  const questions = [...main.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map(([, inner]) => text(inner));
+  assert.equal(new Set(questions).size, questions.length, "A question is repeated on the merged page");
+  for (const general of ["Can a car be removed from an underground garage?", "Can I choose any collection time?", "Can a junk car that does not run be removed?"]) {
+    assert.ok(questions.includes(general), general);
+  }
+  let lastPosition = main.indexOf("Agree on the handover plan");
+  assert.ok(lastPosition > 0, "The general access, loading and handover guidance is missing");
+  for (const section of REMOVAL_SECTIONS) {
+    const html = sectionById(main, section.id);
+    assert.ok(html, `No section with id="${section.id}"`);
+    assert.equal(main.match(new RegExp(`\\bid="${section.id}"`, "g")).length, 1, `id="${section.id}" is repeated`);
+    assert.equal(text(html.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/)?.[1] ?? ""), section.heading, section.id);
+    const position = main.indexOf(html);
+    assert.ok(position > lastPosition, `${section.id} is out of order`);
+    lastPosition = position;
+    const body = text(main.slice(position, position + 6000));
+    for (const point of section.points) assert.ok(body.includes(point), `${section.id} lost "${point}"`);
+    for (const pattern of section.guidance) assert.match(text(main), pattern, section.id);
+    for (const question of section.questions) assert.ok(questions.includes(question), `${section.id} lost the question "${question}"`);
+    // The page's own list of situations points at the section, not at the page it replaced.
+    assert.equal(hubLinks.get(`${REMOVAL_PAGE}#${section.id}`), section.heading, section.id);
+  }
+  assert.equal(questions.length, 3 + REMOVAL_SECTIONS.reduce((count, section) => count + section.questions.length, 0));
+  // Merging adds no promise the separate pages did not make.
+  assert.doesNotMatch(text(main), /free towing|same[- ]day|top dollar|instant cash|\$\d/i);
+});
+
+test("no rendered page links to a redirected URL, and every fragment link lands on a real id", () => {
+  const redirected = new Set(classified.redirects.keys());
+  assert.equal(MERGED_REMOVAL_PAGES.every((path) => redirected.has(path)), true);
+  for (const [path, { html }] of pages) {
+    for (const [, href] of html.matchAll(/<a\b[^>]*href="([^"]+)"/g)) {
+      const url = new URL(href.replaceAll("&amp;", "&"), `${origin}${path}`);
+      if (url.origin !== origin) continue;
+      const target = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
+      assert.equal(redirected.has(target), false, `${path} links to ${href}, which redirects to ${classified.redirects.get(target)}`);
+      if (!url.hash || !pages.has(target)) continue;
+      const id = decodeURIComponent(url.hash.slice(1));
+      assert.match(pages.get(target).html, new RegExp(`\\bid="${id}"`), `${path} links to ${href}, but ${target} has no id="${id}"`);
+    }
+  }
+  // The service lists and the footer carry one link for car removal, not one per merged page.
+  const home = pages.get("/").html;
+  assert.match(home, /href="\/car-removal-brisbane\/"/);
+  assert.doesNotMatch(home, />(?:Junk|Old|Scrap|Unwanted) car removal</);
 });
 
 test("truck, recycling and collection pages address different user questions", () => {
