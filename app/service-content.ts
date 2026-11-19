@@ -6,14 +6,73 @@ export const FREE_REMOVAL_LABEL_CAUTION =
 
 export type QuestionAnswer = { question: string; answer: string };
 export type ContentSection = { title: string; text: string };
+export type RelatedLink = { href: string; label: string; text: string };
+export type RelatedServices = {
+  heading: string;
+  intro: string;
+  /** A sentence that links up to the broader page: `${before}<a>${label}</a>${after}`. */
+  parent?: { before: string; href: string; label: string; after: string };
+  links: RelatedLink[];
+};
 export type ServiceContent = {
   heading: string;
+  /** Replaces the default "<heading> | Ozi Cash for Cars" page title. */
+  title?: string;
   description: string;
   intro: string;
   sections: ContentSection[];
   faqs: QuestionAnswer[];
   relatedGuide: string;
+  related?: RelatedServices;
 };
+
+// One anchor per destination, reused wherever that page is linked, so each
+// page is described the same way across the site.
+const USED_CARS_LINK: RelatedLink = {
+  href: "/cash-for-used-cars/",
+  label: "Cash for used cars in Brisbane",
+  text: "How kilometres, service history and condition shape an offer for a car that is still usable.",
+};
+const TRUCKS_LINK: RelatedLink = {
+  href: "/cash-for-trucks/",
+  label: "Cash for trucks and commercial vehicles",
+  text: "The GVM, body type and site access details needed for a truck enquiry.",
+};
+const REMOVAL_HUB_LINK: RelatedLink = {
+  href: "/car-removal-brisbane/",
+  label: "Car removal in Brisbane",
+  text: "Parking access, loading and booking a collection time for any vehicle.",
+};
+const USED_CAR_REMOVAL_LINK: RelatedLink = {
+  href: "/used-car-removals/",
+  label: "Used car removal after an agreed sale",
+  text: "Registration, personal data, keys and the final handover check.",
+};
+
+// /car-removal-brisbane/ is the general removal page. Each page below covers one
+// situation, links up to it and across to the others.
+const REMOVAL_SITUATION_LINKS: RelatedLink[] = [
+  { href: "/junk-car-removals/", label: "Junk car removal for neglected cars", text: "Seized wheels, overgrown access and loose parts on a car left sitting." },
+  { href: "/scrap-car-removals/", label: "Scrap car and shell removal", text: "Missing components, loading hazards and disposal records for a stripped vehicle." },
+  { href: "/old-car-removals/", label: "Old car removal after long storage", text: "Flat tyres, seized brakes, finding keys and estate vehicles." },
+  { href: "/unwanted-car-removals/", label: "Unwanted car removal from a property", text: "Who can approve the sale, who gives access and when the space is needed." },
+  USED_CAR_REMOVAL_LINK,
+  { href: "/free-car-removals/", label: "Car removal towing terms", text: "What standard towing covers and which recoveries need separate agreement." },
+];
+
+function removalSituation(path: string, intro: string, extraLinks: RelatedLink[] = []): RelatedServices {
+  return {
+    heading: "Related car removal pages",
+    intro,
+    parent: {
+      before: "For parking access, loading and booking on any vehicle, start with ",
+      href: REMOVAL_HUB_LINK.href,
+      label: "car removal in Brisbane",
+      after: ".",
+    },
+    links: [...REMOVAL_SITUATION_LINKS.filter((link) => link.href !== path), ...extraLinks],
+  };
+}
 
 // Editorial content is independent of the legacy URL inventory. These records describe
 // what an owner should disclose and confirm; they do not promise unverified eligibility.
@@ -124,9 +183,9 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
     relatedGuide: "/blog/sell-your-car-fast-and-easy-in-brisbane/",
   },
   "/cash-for-used-cars/": {
-    heading: "Cash for Used Cars",
-    description: "Request a used-car offer with mileage, service history and condition details. Compare the sale terms, inspection and collection arrangements.",
-    intro: "For a used car, the model variant, kilometres and maintenance history can be as useful as its age. Supply enough detail to compare an offer with your other selling choices.",
+    heading: "Cash for Used Cars Brisbane",
+    description: "Request an offer for a used car in Brisbane with its kilometres, service history and condition. Compare the sale terms, inspection and pickup arrangements.",
+    intro: "Selling a used car, ute, van or 4WD in Brisbane? The model variant, kilometres and maintenance history can be as useful as its age. Supply enough detail to compare an offer with your other selling choices.",
     sections: [
       { title: "Show how the car has been maintained", text: "Include the exact variant, transmission, odometer reading and registration status. Mention available service history, recent repairs and known faults. Photos of the exterior, interior and odometer help describe the vehicle; keep personal information in documents out of photos." },
       { title: "Compare convenience and net proceeds", text: "A direct offer with collection may have different terms from a private sale or trade-in. Compare the amount you would receive after any agreed costs, the time involved and the point at which an offer becomes final. Ask whether an inspection is needed before the price is confirmed." },
@@ -135,13 +194,24 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
     faqs: [
       { question: "Will recent repairs be added dollar-for-dollar to the offer?", answer: "Do not assume repair spending equals an increase in resale value. Include the work in the enquiry so it can be considered with the car's overall condition." },
       { question: "Should I include faults on an otherwise well-kept car?", answer: "Yes. Disclosing faults before inspection makes the assessment more useful and avoids a quote based on an incomplete description." },
+      { question: "Which used vehicles can I enquire about in Brisbane?", answer: "Cars, utes, vans, 4WDs and light trucks can be described in the quote form, whether they are in daily use or have known faults. The team confirms suitability and pickup availability for your suburb after reviewing the details." },
     ],
     relatedGuide: "/blog/selling-your-car-without-a-roadworthy-certificate/",
+    related: {
+      heading: "More help selling a used car",
+      intro: "This page is about getting an offer for a car that is still usable. These pages cover the steps on either side of that.",
+      links: [
+        { href: "/sell-my-car/", label: "Sell my car in Brisbane", text: "The whole process, from the first quote to payment and paperwork." },
+        USED_CAR_REMOVAL_LINK,
+        { href: "/cash-for-unwanted-cars/", label: "Cash for unwanted cars", text: "Comparing an offer for a spare car you no longer need." },
+      ],
+    },
   },
   "/car-removal-brisbane/": {
     heading: "Car Removal Brisbane",
-    description: "Plan a Brisbane car collection by checking parking access, vehicle movement, available times and handover requirements before booking.",
-    intro: "A successful car removal starts with the pickup site. Tell us where the vehicle is parked and how a collection truck can reach it before a time is agreed.",
+    title: "Car Removal Brisbane | Junk, Scrap and Unwanted Cars",
+    description: "Plan car removal in Brisbane for a junk, scrap, old or unwanted car by checking parking access, loading, available times and handover requirements.",
+    intro: "Car removal in Brisbane starts with the pickup site, whether the vehicle is a junk car, a scrap shell or simply one you no longer need. Tell us where it is parked and how a collection truck can reach it before a time is agreed.",
     sections: [
       { title: "Describe the route to the vehicle", text: "Include the pickup suburb and whether the vehicle is on a driveway, in a yard, on a street or in a garage. Mention narrow entrances, slopes, height restrictions and anything blocking access. Photos can help explain the site without you moving an unsafe vehicle." },
       { title: "Explain how the car can be loaded", text: "State whether it has keys, inflated tyres, steering and wheels that turn. A car that will not start may still roll; a car with seized wheels needs a different assessment. Discuss any unusual recovery requirement and its cost before confirming collection." },
@@ -150,8 +220,14 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
     faqs: [
       { question: "Can a car be removed from an underground garage?", answer: "Provide the height clearance, entry layout and vehicle condition before booking. Access must be assessed; collection from every garage is not guaranteed." },
       { question: "Can I choose any collection time?", answer: "Ask for available windows for your suburb and vehicle. Distance, access and truck scheduling need to be confirmed before a booking is agreed." },
+      { question: "Can a junk car that does not run be removed?", answer: "Describe the fault and whether the car rolls and steers, and mention missing keys or wheels. The team assesses the vehicle and its loading requirements before confirming a Brisbane pickup." },
     ],
     relatedGuide: "/blog/how-to-get-cash-for-cars-in-brisbane-qld/",
+    related: {
+      heading: "Car removal for a specific situation",
+      intro: "This page covers access, loading and booking for any car removal in Brisbane. If one of these situations matches yours, that page goes into the detail.",
+      links: REMOVAL_SITUATION_LINKS,
+    },
   },
   "/car-recycling-brisbane/": {
     heading: "Car Recycling Brisbane",
@@ -170,6 +246,7 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
   },
   "/free-car-removals/": {
     heading: "Free Car Removal: Check Your Pickup Terms",
+    title: "Free Car Removal: Check Your Pickup Terms",
     description: "Understand what to confirm about included standard towing, difficult access and unusual recovery costs before accepting a car-removal offer.",
     intro: COVERED_TOWING_TERMS,
     sections: [
@@ -182,9 +259,10 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "How can I compare offers with different towing terms?", answer: "Ask each buyer for the vehicle amount and any collection charges, then compare the net amount and agreed pickup requirements." },
     ],
     relatedGuide: "/blog/sell-your-car-fast-and-easy-in-brisbane/",
+    related: removalSituation("/free-car-removals/", "This page is about what the towing terms cover."),
   },
   "/junk-car-removals/": {
-    heading: "Junk Car Removal",
+    heading: "Junk Car Removal for Neglected Cars",
     description: "Prepare a neglected or incomplete car for a collection assessment. Explain seized parts, surrounding obstacles and any loose vehicle components.",
     intro: "Removing a neglected car often depends on what has changed around it: vegetation, flat tyres, seized wheels or stored items blocking the way.",
     sections: [
@@ -197,9 +275,10 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "What if there are no keys?", answer: "Disclose missing keys and whether steering and wheels are locked. The team will need to confirm the loading plan and the ownership documents required." },
     ],
     relatedGuide: "/blog/how-to-get-cash-for-cars-in-brisbane-qld/",
+    related: removalSituation("/junk-car-removals/", "This page is about a car that has deteriorated where it sits."),
   },
   "/old-car-removals/": {
-    heading: "Old Car Removal",
+    heading: "Old Car Removal After Long Storage",
     description: "Arrange an assessment for an old car that has been stored or taken off the road. Check access, keys, paperwork and safe preparation.",
     intro: "An older car that has sat unused may be harder to move than it appears. Share its storage history so collection can be planned without relying on it being road-ready.",
     sections: [
@@ -212,9 +291,10 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "Can an estate vehicle be removed straight away?", answer: "Explain the circumstances and establish who can authorise its sale and release. Required authority should be confirmed before any booking." },
     ],
     relatedGuide: "/blog/selling-your-car-without-a-roadworthy-certificate/",
+    related: removalSituation("/old-car-removals/", "This page is about an older car that has been parked for a long time."),
   },
   "/scrap-car-removals/": {
-    heading: "Scrap Car Removal",
+    heading: "Scrap Car and Shell Removal",
     description: "Plan collection of a scrap vehicle or shell. Disclose missing components, loading hazards and the paperwork you need at handover.",
     intro: "A scrap vehicle can require more preparation than a complete car. The collector needs to know what remains, what can move and whether any damage affects safe loading.",
     sections: [
@@ -227,6 +307,7 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "Can I add other scrap metal to the pickup?", answer: "Discuss it separately before accepting the arrangement. A quote for one vehicle does not automatically include other material or waste." },
     ],
     relatedGuide: "/blog/a-guide-to-understanding-cash-for-cars-brisbane/",
+    related: removalSituation("/scrap-car-removals/", "This page is about a scrap vehicle or shell with parts missing."),
   },
   "/sell-my-car/": {
     heading: "Sell My Car in Brisbane",
@@ -242,10 +323,15 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "What should I confirm about payment?", answer: "Ask which method is available, when the funds will be provided and what confirmation you will receive. Agree these details before the vehicle is handed over." },
     ],
     relatedGuide: "/blog/sell-your-car-fast-and-easy-in-brisbane/",
+    related: {
+      heading: "Pages for your type of sale",
+      intro: "This page covers the steps common to every sale. These pages go further for a particular vehicle or situation.",
+      links: [USED_CARS_LINK, TRUCKS_LINK, REMOVAL_HUB_LINK],
+    },
   },
   "/unwanted-car-removals/": {
-    heading: "Unwanted Car Removal",
-    description: "Plan removal of a car you no longer need from home or another property. Confirm authority, access, timing and the handover contact.",
+    heading: "Unwanted Car Removal from a Property",
+    description: "Clear an unwanted car from a home, workplace or storage site. Confirm who can approve the sale, who provides access and when collection can happen.",
     intro: "Clearing an unwanted car from a property involves the vehicle owner as well as the pickup site. Establish who can approve the sale and who can provide access.",
     sections: [
       { title: "Confirm the right to remove and sell it", text: "If the car is yours, prepare evidence of ownership or authority. If it belongs to a tenant, neighbour, relative or previous occupant, do not assume control of the property gives you the right to sell it. Resolve authority before requesting a collection booking." },
@@ -257,6 +343,7 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "Can someone else attend the pickup for me?", answer: "Discuss this before booking and ask which written authority and identification are required. The attending person should know the agreed handover terms." },
     ],
     relatedGuide: "/blog/how-to-get-cash-for-cars-in-brisbane-qld/",
+    related: removalSituation("/unwanted-car-removals/", "This page is about who can approve a sale and give access to the property."),
   },
   "/unwanted-truck-removals/": {
     heading: "Unwanted Truck Removal",
@@ -287,6 +374,7 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "What personal data should I remove from the car?", answer: "Check the car's own instructions for removing paired phones, saved addresses and connected accounts. Remove physical belongings and toll tags as well." },
     ],
     relatedGuide: "/blog/selling-your-car-without-a-roadworthy-certificate/",
+    related: removalSituation("/used-car-removals/", "This page is about handing over a usable car once a sale is agreed.", [USED_CARS_LINK]),
   },
 };
 

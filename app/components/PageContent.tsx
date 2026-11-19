@@ -3,7 +3,7 @@ import Link from "next/link";
 import { blogArticles, locationPagesForHub, SitePage } from "../site-data";
 import { NON_BRISBANE_REGION_PATHS, PRIVACY_POLICY_UPDATED_LABEL, REGION_LINKS, SERVICE_GROUPS, SERVICE_LINKS, SITE } from "../site-config";
 import { ARTICLE_CONTENT } from "../article-content";
-import { COVERED_TOWING_TERMS, FREE_REMOVAL_LABEL_CAUTION, GENERAL_FAQS, SERVICE_CONTENT, type QuestionAnswer } from "../service-content";
+import { COVERED_TOWING_TERMS, FREE_REMOVAL_LABEL_CAUTION, GENERAL_FAQS, SERVICE_CONTENT, type QuestionAnswer, type RelatedServices } from "../service-content";
 import { QuoteForm } from "./QuoteForm";
 
 const HERO_IMAGE = "/wp-content/uploads/2021/08/page-banner1.jpg";
@@ -63,6 +63,38 @@ function TrustStrip({ page }: { page: SitePage }) {
         <div>
           <strong>{brisbaneTeam ? "Local support" : "Contact the team"}</strong>
           <span>{brisbaneTeam ? "Speak with our Brisbane team" : "Confirm availability, the final offer and towing terms for your vehicle before booking."}</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// Homepage only: sentences that link to the core service pages by what each one covers.
+function HomeGuideSection() {
+  return (
+    <section className="section" id="vehicle-guide">
+      <div className="shell">
+        <div className="section-heading section-heading--left">
+          <span className="eyebrow">Where to start</span>
+          <h2>Selling or removing a vehicle in Brisbane</h2>
+        </div>
+        <div className="guide-prose">
+          <p>
+            Selling a car that is still in regular use? <Link href="/cash-for-used-cars/">Cash for used cars in Brisbane</Link> explains
+            how kilometres, service history and condition shape an offer. For a truck, <Link href="/cash-for-trucks/">cash for trucks and commercial vehicles</Link> lists
+            the GVM, body type and site access details to send so suitability can be confirmed.
+          </p>
+          <p>
+            If the vehicle mainly needs collecting, <Link href="/car-removal-brisbane/">car removal in Brisbane</Link> covers
+            parking access, loading and booking a time. Two situations have their own pages: <Link href="/scrap-car-removals/">scrap car and shell removal</Link> for
+            a vehicle with parts missing, and <Link href="/unwanted-car-removals/">unwanted car removal from a property</Link> when
+            someone else has to approve the sale or provide access.
+          </p>
+          <p>
+            Pickup availability depends on where the vehicle is. On the northside,
+            check <Link href="/cash-for-cars-brisbane-northern-suburbs/">cash for cars in Brisbane&apos;s northern suburbs</Link>, or
+            choose your side of the city from the <a href="#service-areas">service areas</a> below.
+          </p>
         </div>
       </div>
     </section>
@@ -173,6 +205,23 @@ function FaqSection({ faqs = GENERAL_FAQS.slice(0, 4), heading = "Common questio
   );
 }
 
+function RelatedServicesBlock({ related }: { related: RelatedServices }) {
+  return (
+    <div className="related-services">
+      <h2>{related.heading}</h2>
+      <p>
+        {related.intro}
+        {related.parent && <> {related.parent.before}<Link href={related.parent.href}>{related.parent.label}</Link>{related.parent.after}</>}
+      </p>
+      <ul className="related-links">
+        {related.links.map((link) => (
+          <li key={link.href}><Link href={link.href}>{link.label}</Link><span>{link.text}</span></li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ServicePage({ page }: { page: SitePage }) {
   const content = SERVICE_CONTENT[page.path];
   if (!content) throw new Error(`Missing authored service content: ${page.path}`);
@@ -180,8 +229,11 @@ function ServicePage({ page }: { page: SitePage }) {
   return (
     <>
       <QuoteHero page={page} />
-      <section className="section section--muted"><div className="shell card-grid">
-        {content.sections.map((section) => <section className="guide-card" key={section.title}><h2>{section.title}</h2><p>{section.text}</p></section>)}
+      <section className="section section--muted"><div className="shell">
+        <div className="card-grid">
+          {content.sections.map((section) => <section className="guide-card" key={section.title}><h2>{section.title}</h2><p>{section.text}</p></section>)}
+        </div>
+        {content.related && <RelatedServicesBlock related={content.related} />}
       </div></section>
       <FaqSection faqs={content.faqs} heading="Questions about this service" />
       {guide && <section className="section section--muted"><div className="shell"><h2>Before you book</h2><p>{guide.description}</p><Link href={guide.path}>{guide.heading} →</Link><p><Link href="/#services">Compare other vehicle services</Link> · <Link href="/frequently-asked-questions/">Read all common questions</Link></p></div></section>}
@@ -215,6 +267,7 @@ function StandardPage({ page }: { page: SitePage }) {
     <>
       <QuoteHero page={page} />
       <TrustStrip page={page} />
+      {page.kind === "home" && <HomeGuideSection />}
       <ProcessSection />
       <ServicesSection page={page} />
       <AreaSection page={page} />
