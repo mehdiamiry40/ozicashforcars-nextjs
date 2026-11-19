@@ -186,7 +186,7 @@ function modelPage(pathname: string, raw: RawPage): SitePage {
   const service = kind === "service" ? SERVICE_CONTENT[pathname] : undefined;
   if (kind === "service" && !service) throw new Error(`Missing authored service content: ${pathname}`);
   const heading = service?.heading ?? SPECIAL_TITLES[pathname]?.split("|")[0].trim() ?? titleCase(lastSegment(pathname));
-  const title = SPECIAL_TITLES[pathname] ?? trimTo(`${heading} | Ozi Cash for Cars`, 58);
+  const title = SPECIAL_TITLES[pathname] ?? service?.title ?? trimTo(`${heading} | Ozi Cash for Cars`, 58);
   const noIndex = kind === "thank-you" || kind === "utility" || kind === "testimonials" || kind === "vehicles";
 
   return {

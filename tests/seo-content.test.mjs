@@ -63,6 +63,81 @@ test("indexable pages do not repeat the same body with only a different heading"
   }
 });
 
+function headTitle(path) {
+  return text(pages.get(path).html.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? "");
+}
+
+function mainHeading(path) {
+  return text(pages.get(path).main.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? "");
+}
+
+function anchors(html) {
+  return new Map([...html.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map(([, href, inner]) => [href, text(inner)]));
+}
+
+test("the homepage links to the core service pages from sentences, not only from lists", () => {
+  const guide = pages.get("/").main.match(/<section\b[^>]*id="vehicle-guide"[\s\S]*?<\/section>/)?.[0];
+  assert.ok(guide, "The homepage has no vehicle guide section");
+  const links = anchors(guide);
+  const expected = {
+    "/cash-for-used-cars/": "Cash for used cars in Brisbane",
+    "/cash-for-trucks/": "cash for trucks and commercial vehicles",
+    "/car-removal-brisbane/": "car removal in Brisbane",
+    "/scrap-car-removals/": "scrap car and shell removal",
+    "/unwanted-car-removals/": "unwanted car removal from a property",
+    "/cash-for-cars-brisbane-northern-suburbs/": "cash for cars in Brisbane's northern suburbs",
+  };
+  for (const [path, anchor] of Object.entries(expected)) {
+    assert.equal(pages.get(path).indexable, true, path);
+    assert.equal(links.get(path), anchor, path);
+  }
+  for (const path of ["/cash-for-cars-gold-coast/", "/cash-for-cars-brisbane-northern-suburbs/"]) {
+    assert.doesNotMatch(pages.get(path).main, /id="vehicle-guide"/, path);
+  }
+  assert.match(pages.get("/about-us/").html, /<footer[\s\S]*href="\/cash-for-used-cars\/"/, "The footer no longer links to the used-cars page");
+});
+
+test("the used-cars page names Brisbane in its title, heading, description and opening copy", () => {
+  const path = "/cash-for-used-cars/";
+  const { html, main } = pages.get(path);
+  assert.equal(headTitle(path), "Cash for Used Cars Brisbane | Ozi Cash for Cars");
+  assert.equal(mainHeading(path), "Cash for Used Cars Brisbane");
+  assert.match(html, /<meta name="description" content="[^"]*used car in Brisbane/);
+  assert.match(text(main), /Selling a used car, ute, van or 4WD in Brisbane\?/);
+  const links = anchors(main);
+  for (const target of ["/sell-my-car/", "/used-car-removals/", "/cash-for-unwanted-cars/"]) assert.ok(links.has(target), target);
+  for (const source of ["/sell-my-car/", "/used-car-removals/"]) {
+    assert.equal(anchors(pages.get(source).main).get(path), "Cash for used cars in Brisbane", source);
+  }
+});
+
+test("one page targets car removal in Brisbane and each narrower removal page links up to it", () => {
+  const hub = "/car-removal-brisbane/";
+  const narrower = ["/junk-car-removals/", "/scrap-car-removals/", "/old-car-removals/", "/unwanted-car-removals/", "/used-car-removals/", "/free-car-removals/"];
+  const all = [hub, ...narrower];
+  assert.equal(new Set(all.map(headTitle)).size, all.length, "Removal pages share a title");
+  assert.equal(new Set(all.map(mainHeading)).size, all.length, "Removal pages share a heading");
+  assert.equal(new Set(all.map((path) => pages.get(path).html.match(/<meta name="description" content="([^"]*)"/)?.[1])).size, all.length, "Removal pages share a description");
+  for (const path of all) {
+    assert.ok(headTitle(path).length <= 60, `${path} title is ${headTitle(path).length} characters`);
+    assert.doesNotMatch(headTitle(path), /…/, path);
+  }
+  assert.match(headTitle(hub), /^Car Removal Brisbane \| /);
+  assert.equal(mainHeading(hub), "Car Removal Brisbane");
+  assert.match(text(pages.get(hub).main), /junk car/);
+  const hubLinks = anchors(pages.get(hub).main);
+  for (const path of narrower) {
+    assert.ok(hubLinks.has(path), `${hub} does not link to ${path}`);
+    assert.doesNotMatch(headTitle(path) + mainHeading(path), /Brisbane/, `${path} competes for the Brisbane removal title`);
+    const links = anchors(pages.get(path).main);
+    assert.equal(links.get(hub), "car removal in Brisbane", path);
+    for (const other of narrower) {
+      if (other !== path) assert.equal(links.get(other), hubLinks.get(other), `${path} to ${other}`);
+    }
+  }
+  assert.equal(new Set(narrower.map((path) => hubLinks.get(path))).size, narrower.length, "Removal pages share an anchor");
+});
+
 test("truck, recycling and collection pages address different user questions", () => {
   const truck = text(pages.get("/cash-for-trucks/").main);
   assert.match(truck, /GVM/);

@@ -55,6 +55,10 @@ export const SERVICE_LINKS = [
   { href: "/used-car-removals/", label: "Used car removal" },
 ] as const;
 
+// The footer lists the first six services. These follow them, so each one is
+// also linked from every page of the site.
+export const FOOTER_EXTRA_SERVICE_PATHS = new Set<string>(["/cash-for-used-cars/"]);
+
 export const SERVICE_GROUPS = [
   { title: "Vehicle offers", links: SERVICE_LINKS.filter((link) => link.href.startsWith("/cash-for-") && link.href !== "/cash-for-trucks/") },
   { title: "Car collection", links: SERVICE_LINKS.filter((link) => link.href.includes("removal") && link.href !== "/unwanted-truck-removals/") },
