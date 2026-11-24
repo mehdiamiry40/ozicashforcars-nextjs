@@ -73,6 +73,14 @@ export const REGION_LINKS = [
   { href: "/cash-for-cars-sunshine-coast/", label: "Sunshine Coast enquiries" },
 ] as const;
 
+// Search Console (15 to 21 November 2026) showed truck searches that name Logan
+// and Wynnum. These two regional pages send such a visitor to the trucks page in
+// a sentence: "Selling a truck in <place>?".
+export const TRUCK_ENQUIRY_PLACES: Record<string, string> = {
+  "/cash-for-cars-logan-city-suburbs/": "Logan City",
+  "/cash-for-cars-brisbane-eastern-suburbs/": "Wynnum or elsewhere in Brisbane's eastern suburbs",
+};
+
 export const INFORMATION_LINKS = [
   { href: "/about-us/", label: "About us" },
   { href: "/vehicles/", label: "Vehicle enquiries" },

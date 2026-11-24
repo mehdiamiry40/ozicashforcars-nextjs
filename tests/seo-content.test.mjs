@@ -83,6 +83,8 @@ test("the homepage links to the core service pages from sentences, not only from
   const expected = {
     "/cash-for-used-cars/": "Cash for used cars in Brisbane",
     "/cash-for-trucks/": "cash for trucks and commercial vehicles",
+    "/cash-for-trucks/#old-trucks": "cash for old and unwanted trucks",
+    "/cash-for-trucks/#scrap-trucks": "cash for scrap and junk trucks",
     "/car-removal-brisbane/": "car removal in Brisbane",
     "/car-removal-brisbane/#scrap-cars": "scrap car and shell removal",
     "/car-removal-brisbane/#unwanted-cars": "unwanted car removal from a property",
@@ -234,6 +236,139 @@ test("no rendered page links to a redirected URL, and every fragment link lands 
   const home = pages.get("/").html;
   assert.match(home, /href="\/car-removal-brisbane\/"/);
   assert.doesNotMatch(home, />(?:Junk|Old|Scrap|Unwanted) car removal</);
+});
+
+const TRUCKS_PAGE = "/cash-for-trucks/";
+// The sections added on 24 November 2026 for the truck searches Search Console showed the page missing.
+const TRUCK_SECTIONS = [
+  {
+    id: "old-trucks",
+    heading: "Cash for old and unwanted trucks",
+    points: ["Describe its age, use and storage", "Keep its history with the enquiry", "Confirm who can approve the sale"],
+    guidance: [/parked for a long time/, /business or fleet truck/],
+  },
+  {
+    id: "scrap-trucks",
+    heading: "Cash for scrap and junk trucks",
+    points: ["List what remains on the truck", "Ask what the offer is based on", "Plan a documented handover"],
+    guidance: [/cab and chassis with major parts missing/, /scrap-metal rate by weight does not set the amount/],
+  },
+  {
+    id: "used-trucks",
+    heading: "Cash for used trucks",
+    points: ["Show how the truck has been maintained", "Compare the offer with your other options", "Prepare what goes with the truck"],
+    guidance: [/private sale or a trade-in/, /toll tags and tracking devices/],
+  },
+];
+// Every page that was given a link to the trucks page, with the address and the anchor it uses.
+// The title and heading are what each page had before; a link is all it gained.
+const TRUCK_LINK_SOURCES = [
+  { path: "/", links: { "/cash-for-trucks/": "cash for trucks and commercial vehicles", "/cash-for-trucks/#old-trucks": "cash for old and unwanted trucks", "/cash-for-trucks/#scrap-trucks": "cash for scrap and junk trucks" }, title: "Cash for Cars Brisbane | Check Your Pickup Terms", heading: "Cash for Cars Brisbane" },
+  { path: "/cash-for-junk-cars/", links: { "/cash-for-trucks/#scrap-trucks": "cash for scrap and junk trucks" }, title: "Cash for Junk Cars | Ozi Cash for Cars", heading: "Cash for Junk Cars" },
+  { path: "/cash-for-scrap-cars/", links: { "/cash-for-trucks/#scrap-trucks": "cash for scrap and junk trucks" }, title: "Cash for Scrap Cars | Ozi Cash for Cars", heading: "Cash for Scrap Cars" },
+  { path: "/cash-for-old-cars/", links: { "/cash-for-trucks/#old-trucks": "cash for old and unwanted trucks" }, title: "Cash for Old Cars | Ozi Cash for Cars", heading: "Cash for Old Cars" },
+  { path: "/cash-for-unwanted-cars/", links: { "/cash-for-trucks/#old-trucks": "cash for old and unwanted trucks" }, title: "Cash for Unwanted Cars | Ozi Cash for Cars", heading: "Cash for Unwanted Cars" },
+  { path: "/unwanted-truck-removals/", links: { "/cash-for-trucks/": "cash for trucks and commercial vehicles" }, title: "Unwanted Truck Removal | Ozi Cash for Cars", heading: "Unwanted Truck Removal" },
+];
+// The two regional pages that name a place in a sentence about trucks.
+const TRUCK_PLACE_PAGES = [
+  { path: "/cash-for-cars-logan-city-suburbs/", sentence: "Selling a truck in Logan City? Cash for trucks and commercial vehicles lists", title: "Cash for Cars Logan City | Pickup Enquiries", heading: "Cash for Cars Logan City" },
+  { path: "/cash-for-cars-brisbane-eastern-suburbs/", sentence: "Selling a truck in Wynnum or elsewhere in Brisbane's eastern suburbs? Cash for trucks and commercial vehicles lists", title: "Cash for Cars Brisbane Eastern Suburbs | Pickup Enquiries", heading: "Cash for Cars Brisbane Eastern Suburbs" },
+];
+
+function metaDescription(path) {
+  return text(pages.get(path).html.match(/<meta name="description" content="([^"]*)"/)?.[1] ?? "");
+}
+
+test("the trucks page names Brisbane and old, used, scrap, junk and unwanted trucks in its title, heading, description and sections", () => {
+  const { main, graph } = pages.get(TRUCKS_PAGE);
+  assert.equal(headTitle(TRUCKS_PAGE), "Cash for Trucks Brisbane | Old, Used and Scrap Trucks");
+  assert.ok(headTitle(TRUCKS_PAGE).length <= 60, `The title is ${headTitle(TRUCKS_PAGE).length} characters`);
+  assert.equal(mainHeading(TRUCKS_PAGE), "Cash for Trucks Brisbane");
+  assert.equal(main.match(/<h1\b/g)?.length, 1, "The trucks page must keep exactly one H1");
+  const description = metaDescription(TRUCKS_PAGE);
+  assert.match(description, /^Cash for trucks in Brisbane: request a quote for an old, used, scrap, junk or unwanted truck/);
+  assert.ok(description.length <= 155, `The description is ${description.length} characters`);
+  assert.match(text(main), /Selling an old, used, scrap or unwanted truck in Brisbane\?/);
+  assert.equal(graph.find((entity) => entity["@type"] === "Service").name, "Cash for Trucks Brisbane");
+
+  const ownLinks = anchors(main);
+  let lastPosition = main.indexOf("Confirm suitability before clearing the site");
+  assert.ok(lastPosition > 0, "The general configuration, loading and site guidance is missing");
+  for (const section of TRUCK_SECTIONS) {
+    const html = sectionById(main, section.id);
+    assert.ok(html, `No section with id="${section.id}"`);
+    assert.equal(main.match(new RegExp(`\\bid="${section.id}"`, "g")).length, 1, `id="${section.id}" is repeated`);
+    assert.equal(text(html.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/)?.[1] ?? ""), section.heading, section.id);
+    const position = main.indexOf(html);
+    assert.ok(position > lastPosition, `${section.id} is out of order`);
+    lastPosition = position;
+    const body = text(main.slice(position, position + 6000));
+    for (const point of section.points) assert.ok(body.includes(point), `${section.id} lost "${point}"`);
+    for (const pattern of section.guidance) assert.match(body, pattern, section.id);
+    // The page's own list of situations points at the section and uses its heading.
+    assert.equal(ownLinks.get(`${TRUCKS_PAGE}#${section.id}`), section.heading, section.id);
+  }
+  assert.equal(ownLinks.get("/unwanted-truck-removals/"), "Unwanted truck removal");
+
+  const questions = [...main.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map(([, inner]) => text(inner));
+  assert.equal(new Set(questions).size, questions.length, "A question is repeated on the trucks page");
+  assert.deepEqual(questions, [
+    "Are all truck sizes accepted?",
+    "Can the truck be collected with a load still on it?",
+    "Can I request a quote for an old truck that does not run?",
+    "Can I sell a truck that belongs to a business or another owner?",
+    "Is a scrap-metal price by weight the offer for a scrap truck?",
+    "Which areas can I request a truck quote from?",
+  ]);
+  assert.match(text(main), /Pickups are arranged throughout Brisbane, Logan, Ipswich, Gold Coast and surrounding areas/);
+  // The new copy states no price, speed, size limit, equipment or guarantee the site did not already state.
+  assert.doesNotMatch(
+    text(main) + headTitle(TRUCKS_PAGE) + description,
+    /free towing|same[- ]day|top dollar|best price|instant cash|\$\d|\d+\s*(?:tonnes?|t\b|kg)|any (?:size|condition|make)|all (?:makes|sizes|trucks)|guarantee|licen[cs]ed|years? (?:of )?experience/i,
+  );
+});
+
+test("no page carries FAQ structured data, so the trucks page's questions add none", () => {
+  for (const [path, page] of pages) {
+    assert.ok(!page.graph.some((entity) => [].concat(entity["@type"]).includes("FAQPage")), path);
+    assert.doesNotMatch(page.html, /"@type":"(?:FAQPage|Question)"/, path);
+  }
+});
+
+test("pages that gained a link to the trucks page use its anchors and keep their own titles and headings", () => {
+  const sectionAnchors = new Map(TRUCK_SECTIONS.map((section) => [`${TRUCKS_PAGE}#${section.id}`, section.heading.toLowerCase()]));
+  for (const source of TRUCK_LINK_SOURCES) {
+    // The homepage also links to the trucks page from its card and lists; the sentence links are in its guide section.
+    const { main } = pages.get(source.path);
+    const links = anchors(source.path === "/" ? main.match(/<section\b[^>]*id="vehicle-guide"[\s\S]*?<\/section>/)[0] : main);
+    for (const [href, anchor] of Object.entries(source.links)) {
+      assert.equal(links.get(href), anchor, `${source.path} to ${href}`);
+      // A link to a section reads as that section's heading does.
+      if (sectionAnchors.has(href)) assert.equal(anchor.toLowerCase(), sectionAnchors.get(href), `${source.path} to ${href}`);
+    }
+    assert.equal(headTitle(source.path), source.title, source.path);
+    assert.equal(mainHeading(source.path), source.heading, source.path);
+  }
+  for (const place of TRUCK_PLACE_PAGES) {
+    const services = pages.get(place.path).main.match(/<section\b[^>]*id="services"[\s\S]*?<div class="card-grid"/)?.[0];
+    assert.ok(services, `${place.path} has no services section`);
+    assert.ok(text(services).includes(place.sentence), `${place.path} lost its truck sentence`);
+    assert.equal(anchors(services).get(TRUCKS_PAGE), "Cash for trucks and commercial vehicles", place.path);
+    assert.equal(headTitle(place.path), place.title, place.path);
+    assert.equal(mainHeading(place.path), place.heading, place.path);
+  }
+  // The sentence belongs to those two pages only.
+  for (const path of ["/", "/cash-for-cars-gold-coast/", "/cash-for-cars-brisbane-northern-suburbs/"]) {
+    assert.doesNotMatch(text(pages.get(path).main), /Selling a truck in /, path);
+  }
+  // The truck card is shown away from Brisbane too, so it does not name Brisbane.
+  for (const path of ["/", "/cash-for-cars-logan-city-suburbs/", "/cash-for-cars-gold-coast/"]) {
+    const card = pages.get(path).main.match(/<a\b[^>]*class="service-card"[^>]*href="\/cash-for-trucks\/"[\s\S]*?<\/a>/)?.[0];
+    assert.ok(card, `${path} has no truck card`);
+    assert.match(text(card), /Request a quote for an old, used, scrap, junk or unwanted truck\./, path);
+    assert.doesNotMatch(text(card), /Brisbane/, path);
+  }
 });
 
 test("truck, recycling and collection pages address different user questions", () => {

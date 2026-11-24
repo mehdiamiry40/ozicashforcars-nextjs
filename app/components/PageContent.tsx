@@ -1,9 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { blogArticles, locationPagesForHub, SitePage } from "../site-data";
-import { NON_BRISBANE_REGION_PATHS, PRIVACY_POLICY_UPDATED_LABEL, REGION_LINKS, SERVICE_GROUPS, SERVICE_LINKS, SITE } from "../site-config";
+import { NON_BRISBANE_REGION_PATHS, PRIVACY_POLICY_UPDATED_LABEL, REGION_LINKS, SERVICE_GROUPS, SERVICE_LINKS, SITE, TRUCK_ENQUIRY_PLACES } from "../site-config";
 import { ARTICLE_CONTENT } from "../article-content";
-import { COVERED_TOWING_TERMS, FREE_REMOVAL_LABEL_CAUTION, GENERAL_FAQS, SERVICE_CONTENT, removalSectionHref, type QuestionAnswer, type RelatedServices, type SituationSection } from "../service-content";
+import { COVERED_TOWING_TERMS, FREE_REMOVAL_LABEL_CAUTION, GENERAL_FAQS, SERVICE_CONTENT, removalSectionHref, truckSectionAnchor, truckSectionHref, type QuestionAnswer, type RelatedServices, type SituationSection } from "../service-content";
 import { QuoteForm } from "./QuoteForm";
 
 const HERO_IMAGE = "/wp-content/uploads/2021/08/page-banner1.jpg";
@@ -82,7 +82,9 @@ function HomeGuideSection() {
           <p>
             Selling a car that is still in regular use? <Link href="/cash-for-used-cars/">Cash for used cars in Brisbane</Link> explains
             how kilometres, service history and condition shape an offer. For a truck, <Link href="/cash-for-trucks/">cash for trucks and commercial vehicles</Link> lists
-            the GVM, body type and site access details to send so suitability can be confirmed.
+            the GVM, body type and site access details to send so suitability can be confirmed. That page has its own sections
+            on <Link href={truckSectionHref("old")}>{truckSectionAnchor("old")}</Link> and
+            on <Link href={truckSectionHref("scrap")}>{truckSectionAnchor("scrap")}</Link>.
           </p>
           <p>
             If the vehicle mainly needs collecting, <Link href="/car-removal-brisbane/">car removal in Brisbane</Link> covers
@@ -132,6 +134,7 @@ function serviceLinksFor(page: SitePage) {
 function ServicesSection({ page }: { page: SitePage }) {
   const links = serviceLinksFor(page);
   const visible = new Set(links.map((link) => link.href));
+  const truckPlace = TRUCK_ENQUIRY_PLACES[page.path];
   return (
     <section className="section" id="services">
       <div className="shell">
@@ -139,13 +142,20 @@ function ServicesSection({ page }: { page: SitePage }) {
           <span className="eyebrow">Find the guidance for your vehicle</span>
           <h2>What we can quote</h2>
           <p>Age, condition and registration status are considered as part of the offer.</p>
+          {truckPlace && (
+            <p>
+              {`Selling a truck in ${truckPlace}? `}
+              <Link href="/cash-for-trucks/">Cash for trucks and commercial vehicles</Link> lists
+              the GVM, body type and site access details to send so suitability can be confirmed.
+            </p>
+          )}
         </div>
         <div className="card-grid">
           {links.slice(0, 6).map((service, index) => (
             <Link className="service-card" href={service.href} key={service.href}>
               <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
               <h3>{service.label}</h3>
-              <p>{SERVICE_CONTENT[service.href].description}</p>
+              <p>{SERVICE_CONTENT[service.href].summary ?? SERVICE_CONTENT[service.href].description}</p>
               <strong>View service →</strong>
             </Link>
           ))}
@@ -215,11 +225,13 @@ function RelatedServicesBlock({ related }: { related: RelatedServices }) {
         {related.intro}
         {related.parent && <> {related.parent.before}<Link href={related.parent.href}>{related.parent.label}</Link>{related.parent.after}</>}
       </p>
-      <ul className="related-links">
-        {related.links.map((link) => (
-          <li key={link.href}><Link href={link.href}>{link.label}</Link><span>{link.text}</span></li>
-        ))}
-      </ul>
+      {related.links.length > 0 && (
+        <ul className="related-links">
+          {related.links.map((link) => (
+            <li key={link.href}><Link href={link.href}>{link.label}</Link><span>{link.text}</span></li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

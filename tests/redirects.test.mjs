@@ -161,7 +161,22 @@ test("deployment routes test a specific 301 before the trailing-slash 308", () =
   assert.equal(new RegExp(slash.src).test("/sell-my-car/"), false);
 });
 
-test("robots omits Host and sitemap lastmod is only the authored privacy date", async () => {
+// Pages whose own content was edited on a known day. Nothing else in the sitemap is dated.
+const AUTHORED_SITEMAP_DATES = {
+  "/privacy-policy/": "2026-11-11",
+  // 24 November 2026: the trucks page was rewritten and these pages were each given a link to it.
+  "/cash-for-trucks/": "2026-11-24",
+  "/": "2026-11-24",
+  "/cash-for-junk-cars/": "2026-11-24",
+  "/cash-for-scrap-cars/": "2026-11-24",
+  "/cash-for-old-cars/": "2026-11-24",
+  "/cash-for-unwanted-cars/": "2026-11-24",
+  "/unwanted-truck-removals/": "2026-11-24",
+  "/cash-for-cars-logan-city-suburbs/": "2026-11-24",
+  "/cash-for-cars-brisbane-eastern-suburbs/": "2026-11-24",
+};
+
+test("robots omits Host and sitemap lastmod is only an authored date for a page that was edited", async () => {
   const { readFile } = await import("node:fs/promises");
   const root = new URL("../.next/server/app/", import.meta.url);
   async function body(name) {
@@ -175,8 +190,13 @@ test("robots omits Host and sitemap lastmod is only the authored privacy date", 
   assert.match(robots, /Sitemap: https:\/\/www\.ozicashforcars\.com\.au\/sitemap\.xml/);
   assert.doesNotMatch(robots, /^Host:/m);
   const sitemap = await body("sitemap.xml");
-  assert.match(sitemap, /<loc>https:\/\/www\.ozicashforcars\.com\.au\/privacy-policy\/<\/loc>[\s\S]*<lastmod>2026-11-11/);
-  assert.equal(sitemap.match(/<lastmod>/g)?.length, 1);
+  const dated = Object.fromEntries([...sitemap.matchAll(/<url>([\s\S]*?)<\/url>/g)].flatMap(([, entry]) => {
+    const lastmod = entry.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1];
+    return lastmod ? [[new URL(entry.match(/<loc>([^<]+)<\/loc>/)[1]).pathname, lastmod.slice(0, 10)]] : [];
+  }));
+  assert.deepEqual(dated, AUTHORED_SITEMAP_DATES);
+  // The pages the 24 November 2026 report said to leave alone were not edited, so they carry no date.
+  assert.equal(dated["/car-removal-brisbane/"], undefined);
   assert.doesNotMatch(sitemap, /testimonials|vehicles\/|sunshine-coast/);
   assert.match(sitemap, /<loc>https:\/\/www\.ozicashforcars\.com\.au\/car-removal-brisbane\/<\/loc>/);
   for (const path of MERGED_REMOVAL_PAGES) {
