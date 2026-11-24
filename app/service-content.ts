@@ -1,3 +1,5 @@
+import { SITE } from "./site-config";
+
 export const COVERED_TOWING_TERMS =
   "Standard towing is included in covered pickup arrangements. Confirm that your vehicle and access fit those terms before treating removal as cost-free.";
 
@@ -24,6 +26,12 @@ export type ServiceContent = {
   /** Replaces the default "<heading> | Ozi Cash for Cars" page title. */
   title?: string;
   description: string;
+  /**
+   * Shown on the service cards instead of `description`. Set it when the
+   * description names Brisbane: the cards also appear on the Logan City and
+   * Gold Coast pages.
+   */
+  summary?: string;
   intro: string;
   sections: ContentSection[];
   /** Rendered after `sections` and the related block, each under its own anchor. */
@@ -40,11 +48,51 @@ const USED_CARS_LINK: RelatedLink = {
   label: "Cash for used cars in Brisbane",
   text: "How kilometres, service history and condition shape an offer for a car that is still usable.",
 };
+const TRUCKS_PATH = "/cash-for-trucks/";
 const TRUCKS_LINK: RelatedLink = {
-  href: "/cash-for-trucks/",
+  href: TRUCKS_PATH,
   label: "Cash for trucks and commercial vehicles",
   text: "The GVM, body type and site access details needed for a truck enquiry.",
 };
+const TRUCK_REMOVAL_LINK: RelatedLink = {
+  href: "/unwanted-truck-removals/",
+  label: "Unwanted truck removal",
+  text: "Gate width, turning space, site rules and opening times for collecting a truck from a yard or business site.",
+};
+
+// /cash-for-trucks/ answers three kinds of truck sale in sections of their own.
+// 24 November 2026: Search Console (15 to 21 November) showed the page at an
+// average position of 55. Its searches were "cash for scrap trucks", "cash for
+// used truck", "cash for old truck", "cash for unwanted truck" and "cash for
+// junk trucks", and it named none of them. Other pages link to these anchors,
+// so the ids have to stay the same.
+export const TRUCK_SECTIONS = {
+  old: { id: "old-trucks", heading: "Cash for old and unwanted trucks" },
+  scrap: { id: "scrap-trucks", heading: "Cash for scrap and junk trucks" },
+  used: { id: "used-trucks", heading: "Cash for used trucks" },
+} as const;
+type TruckSection = keyof typeof TRUCK_SECTIONS;
+
+export function truckSectionHref(section: TruckSection) {
+  return `${TRUCKS_PATH}#${TRUCK_SECTIONS[section].id}`;
+}
+
+/** The section's heading as it reads inside a sentence: "cash for used trucks". */
+export function truckSectionAnchor(section: TruckSection) {
+  const { heading } = TRUCK_SECTIONS[section];
+  return `${heading.charAt(0).toLowerCase()}${heading.slice(1)}`;
+}
+
+// A car page whose subject has a matching truck section sends a truck owner
+// there in one sentence: `${intro} ${before}<a>section</a>${after}`.
+function truckInstead(section: TruckSection, heading: string, intro: string, before: string, after: string): RelatedServices {
+  return {
+    heading,
+    intro,
+    parent: { before, href: truckSectionHref(section), label: truckSectionAnchor(section), after },
+    links: [],
+  };
+}
 const REMOVAL_HUB_PATH = "/car-removal-brisbane/";
 const REMOVAL_HUB_LINK: RelatedLink = {
   href: REMOVAL_HUB_PATH,
@@ -152,6 +200,13 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "Can I leave unrelated rubbish inside the car?", answer: "Remove personal belongings and discuss any non-vehicle waste before booking. A vehicle quote should not be treated as a general rubbish-removal arrangement." },
     ],
     relatedGuide: "/blog/a-guide-to-understanding-cash-for-cars-brisbane/",
+    related: truckInstead(
+      "scrap",
+      "Selling a junk truck instead?",
+      "This page is about junk cars.",
+      "A truck enquiry also needs the GVM, body type and site access, so use ",
+      " for a truck that is incomplete or has been left sitting.",
+    ),
   },
   "/cash-for-old-cars/": {
     heading: "Cash for Old Cars",
@@ -167,6 +222,13 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "What if I do not know the exact odometer reading?", answer: "Give the best information available and clearly mark it as approximate or unreadable. Avoid presenting an estimate as a verified reading." },
     ],
     relatedGuide: "/blog/sell-your-car-fast-and-easy-in-brisbane/",
+    related: truckInstead(
+      "old",
+      "Selling an old truck instead?",
+      "This page is about older cars.",
+      "For a truck, ",
+      " covers its age, use and storage, the history worth sending and who can approve the sale.",
+    ),
   },
   "/cash-for-scrap-cars/": {
     heading: "Cash for Scrap Cars",
@@ -182,21 +244,78 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "Is a scrap-metal price a guaranteed car price?", answer: "No. Vehicle completeness, recoverable components and collection needs also matter. Request a specific offer for your vehicle and location." },
     ],
     relatedGuide: "/blog/a-guide-to-understanding-cash-for-cars-brisbane/",
+    related: truckInstead(
+      "scrap",
+      "Selling a scrap truck instead?",
+      "This page is about scrap cars.",
+      "For a truck, ",
+      " covers what remains on the vehicle, what the offer is based on and the handover, along with the GVM and site access details a truck enquiry needs.",
+    ),
   },
   "/cash-for-trucks/": {
-    heading: "Cash for Trucks",
-    description: "Enquire about selling a truck with its model, GVM, body type, dimensions and loading condition. Confirm capacity and access before arranging collection.",
-    intro: "Truck enquiries need more than a make and year. Weight, body configuration and access determine whether a particular vehicle can be assessed and collected.",
+    heading: "Cash for Trucks Brisbane",
+    title: "Cash for Trucks Brisbane | Old, Used and Scrap Trucks",
+    description: "Cash for trucks in Brisbane: request a quote for an old, used, scrap, junk or unwanted truck with its GVM, body type, condition and site access details.",
+    summary: "Request a quote for an old, used, scrap, junk or unwanted truck. Send its model, GVM, body type, condition and site access so collection can be confirmed.",
+    intro: "Selling an old, used, scrap or unwanted truck in Brisbane? A truck enquiry needs more than a make and year. Weight, body configuration and site access determine whether a particular truck can be assessed and collected.",
     sections: [
       { title: "Identify the truck configuration", text: "Include the make, model, year, GVM if known, axle configuration and body type, such as a tray, van body or tipper. State whether attached equipment is included. Do not assume that a quote for a light truck also covers a heavier commercial vehicle." },
       { title: "Describe operating and loading condition", text: "Tell us whether the truck starts, steers, brakes and rolls, and whether tyres hold air. Provide approximate height and length if the body has been modified. Mention seized brakes, air-system problems or equipment that cannot be lowered before a collection plan is made." },
       { title: "Confirm suitability before clearing the site", text: "Share driveway width, overhead clearance, yard opening times and site contact details. Ask the team to confirm vehicle limits and any recovery requirements for this truck. Remove tools, stock and cargo unless they have explicitly been included in the agreement." },
     ],
+    // Each section answers one group of the searches listed above TRUCK_SECTIONS.
+    // They describe what to send and confirm; none of them states a price, a
+    // size limit or what equipment is available.
+    situations: [
+      {
+        ...TRUCK_SECTIONS.old,
+        intro: "An old truck, or one a business no longer needs, is described by its condition and history as much as its age. Say how it has been used, how long it has been parked and who can approve the sale.",
+        points: [
+          { title: "Describe its age, use and storage", text: "Give the build year, odometer reading and registration status, and say whether the truck is still working, kept as a spare or has been parked for a long time. Mention flat tyres, seized brakes, rust and leaks. Do not try to start a long-parked truck just to complete the enquiry." },
+          { title: "Keep its history with the enquiry", text: "Service records, recent repairs and known defects can explain an older truck better than its age alone. Include changes made to the body or fitted equipment since it was built. If you are unsure of the exact variant or GVM, say so rather than guessing." },
+          { title: "Confirm who can approve the sale", text: "For a business or fleet truck, check that the person accepting the offer has authority to sell it, and ask how outstanding finance or shared ownership must be handled. If you are acting for another owner or an estate, explain your role before booking. Holding the keys does not by itself establish the right to sell." },
+        ],
+      },
+      {
+        ...TRUCK_SECTIONS.scrap,
+        intro: "A truck described as scrap or junk may be a complete non-runner or a cab and chassis with major parts missing. List what is actually there so the enquiry is assessed on that vehicle.",
+        points: [
+          { title: "List what remains on the truck", text: "State whether the engine, gearbox, axles, wheels and body are present, and mention parts already removed or sold. Say whether a tray, tipper body or other fitted equipment goes with it. Avoid calling the truck complete if you have not checked what is missing." },
+          { title: "Ask what the offer is based on", text: "Recoverable material, reusable components, the truck's condition and collection logistics can all affect an offer. A scrap-metal rate by weight does not set the amount for a particular truck. Ask for the vehicle offer and the towing terms together so you can compare the net result." },
+          { title: "Plan a documented handover", text: "Confirm your authority to sell, the documents required, registration arrangements and the payment method before collection. Remove unrelated waste and anything that is not part of the agreement. If you need a disposal or recycling record, ask what can be provided before you accept." },
+        ],
+      },
+      {
+        ...TRUCK_SECTIONS.used,
+        intro: "A used truck that is still working can be described in more detail than a non-runner. Kilometres, maintenance history and the condition of the body and equipment all help describe it.",
+        points: [
+          { title: "Show how the truck has been maintained", text: "Include the exact model, transmission, odometer reading and registration status, with available service history, recent repairs and known faults. Photos of the cab, body and odometer help describe the truck. Keep business and personal details in documents out of the photos." },
+          { title: "Compare the offer with your other options", text: "A direct offer with collection can have different terms from a private sale or a trade-in. Compare the amount you would receive after any agreed costs, the time involved and the point at which the offer becomes final. Ask whether an inspection is needed before the price is confirmed." },
+          { title: "Prepare what goes with the truck", text: "Locate keys, ownership records and any manuals or service records included in the sale. Remove toll tags and tracking devices, and agree which attachments stay on the truck. If it stays in use before pickup, tell the buyer about new damage or faults." },
+        ],
+      },
+    ],
+    // The first two questions are general. The next three go with the old and
+    // unwanted and the scrap and junk sections; the last is about the pickup area.
     faqs: [
       { question: "Are all truck sizes accepted?", answer: "No universal size or weight limit is advertised here. Provide the truck's GVM, configuration and location so the team can confirm suitability and available collection equipment." },
       { question: "Can the truck be collected with a load still on it?", answer: "Disclose any cargo or mounted equipment and ask what must be removed. Do not assume a vehicle quote includes freight, waste or separate machinery." },
+      { question: "Can I request a quote for an old truck that does not run?", answer: "You can request one. Describe the fault and whether the truck rolls, steers and brakes, and mention missing keys or wheels. The team assesses the truck and its loading requirements before confirming whether it can be collected." },
+      { question: "Can I sell a truck that belongs to a business or another owner?", answer: "Explain that you are acting for the business or the owner and ask which authority documents are required. Arrange those before authorising a sale or collection." },
+      { question: "Is a scrap-metal price by weight the offer for a scrap truck?", answer: "No. Completeness, reusable components, condition and collection requirements also matter. Request a specific offer for your truck and its location, and ask for the towing terms with it." },
+      { question: "Which areas can I request a truck quote from?", answer: `Pickups are arranged throughout ${SITE.serviceArea}, and availability depends on distance, vehicle access and tow-truck scheduling. Give the exact suburb, whether that is Wynnum on Brisbane's eastern side or a yard in Logan City, and ask the team to confirm collection for this truck.` },
     ],
     relatedGuide: "/blog/how-to-get-cash-for-cars-in-brisbane-qld/",
+    related: {
+      heading: "Cash for trucks by situation",
+      intro: "The details above apply to any truck enquiry in Brisbane. Old and unwanted trucks, scrap and junk trucks, and used trucks each have their own section further down this page. Collecting a truck from a yard or business site has its own page.",
+      links: [
+        { href: truckSectionHref("old"), label: TRUCK_SECTIONS.old.heading, text: "Age, use and storage history, and who can approve the sale of a business vehicle." },
+        { href: truckSectionHref("scrap"), label: TRUCK_SECTIONS.scrap.heading, text: "What remains on the truck, what an offer is based on and a documented handover." },
+        { href: truckSectionHref("used"), label: TRUCK_SECTIONS.used.heading, text: "Maintenance history, comparing the offer and what goes with a working truck." },
+        TRUCK_REMOVAL_LINK,
+      ],
+    },
   },
   "/cash-for-unwanted-cars/": {
     heading: "Cash for Unwanted Cars",
@@ -212,6 +331,13 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "Can I sell a car for a relative?", answer: "Explain that you are acting for the owner and ask which authority documents are required. Arrange those before authorising sale or collection." },
     ],
     relatedGuide: "/blog/sell-your-car-fast-and-easy-in-brisbane/",
+    related: truckInstead(
+      "old",
+      "Selling an unwanted truck instead?",
+      "This page is about cars you no longer need.",
+      "For a truck that a business or owner no longer needs, ",
+      " covers who can approve the sale and what to send with the enquiry, including the GVM and body type.",
+    ),
   },
   "/cash-for-used-cars/": {
     heading: "Cash for Used Cars Brisbane",
@@ -380,6 +506,17 @@ export const SERVICE_CONTENT: Record<string, ServiceContent> = {
       { question: "Can collection be arranged around yard opening times?", answer: "Provide the site's permitted hours and contact details. The team needs to confirm a compatible collection window and any site-entry requirements." },
     ],
     relatedGuide: "/blog/how-to-get-cash-for-cars-in-brisbane-qld/",
+    related: {
+      heading: "Getting an offer for the truck",
+      intro: "This page is about collecting a truck from a yard, workshop or business site.",
+      parent: {
+        before: "For the offer itself, whether the truck is old, scrap or still in use, start with ",
+        href: TRUCKS_PATH,
+        label: "cash for trucks and commercial vehicles",
+        after: ".",
+      },
+      links: [],
+    },
   },
   "/used-car-removals/": {
     heading: "Used Car Removal",
