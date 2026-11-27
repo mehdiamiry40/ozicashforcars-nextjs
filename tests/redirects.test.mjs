@@ -166,7 +166,8 @@ const AUTHORED_SITEMAP_DATES = {
   "/privacy-policy/": "2026-11-11",
   // 24 November 2026: the trucks page was rewritten and these pages were each given a link to it.
   "/cash-for-trucks/": "2026-11-24",
-  "/": "2026-11-24",
+  // 28 November 2026: the homepage title and heading changed, and its guide gained a third truck link.
+  "/": "2026-11-28",
   "/cash-for-junk-cars/": "2026-11-24",
   "/cash-for-scrap-cars/": "2026-11-24",
   "/cash-for-old-cars/": "2026-11-24",

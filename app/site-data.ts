@@ -1,6 +1,6 @@
 import rawIndex from "../data/site-index.json";
 import { MERGED_PAGES, REGION_HUB_NAMES, REGION_RULES } from "../lib/region-rules.mjs";
-import { HOME_DESCRIPTION, HOME_TITLE, SITE } from "./site-config";
+import { HOME_DESCRIPTION, HOME_HEADING, HOME_TITLE, SITE } from "./site-config";
 import { ARTICLE_CONTENT } from "./article-content";
 import { SERVICE_CONTENT } from "./service-content";
 
@@ -79,6 +79,12 @@ const SPECIAL_TITLES: Record<string, string> = {
   "/vehicles/": "Vehicle Enquiries | Ozi Cash for Cars",
   "/sitemap/": "Website Guide | Ozi Cash for Cars",
   "/useful-links/": "Vehicle Selling Resources | Queensland",
+};
+
+// A page listed here has an authored heading. The other pages in SPECIAL_TITLES
+// take the part of their title before "|".
+const SPECIAL_HEADINGS: Record<string, string> = {
+  "/": HOME_HEADING,
 };
 
 const PAGE_DESCRIPTIONS: Record<string, string> = {
@@ -185,7 +191,7 @@ function modelPage(pathname: string, raw: RawPage): SitePage {
   const kind = KIND_PATHS[pathname] ?? "service";
   const service = kind === "service" ? SERVICE_CONTENT[pathname] : undefined;
   if (kind === "service" && !service) throw new Error(`Missing authored service content: ${pathname}`);
-  const heading = service?.heading ?? SPECIAL_TITLES[pathname]?.split("|")[0].trim() ?? titleCase(lastSegment(pathname));
+  const heading = service?.heading ?? SPECIAL_HEADINGS[pathname] ?? SPECIAL_TITLES[pathname]?.split("|")[0].trim() ?? titleCase(lastSegment(pathname));
   const title = SPECIAL_TITLES[pathname] ?? service?.title ?? trimTo(`${heading} | Ozi Cash for Cars`, 58);
   const noIndex = kind === "thank-you" || kind === "utility" || kind === "testimonials" || kind === "vehicles";
 

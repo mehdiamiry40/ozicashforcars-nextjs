@@ -83,8 +83,9 @@ function HomeGuideSection() {
             Selling a car that is still in regular use? <Link href="/cash-for-used-cars/">Cash for used cars in Brisbane</Link> explains
             how kilometres, service history and condition shape an offer. For a truck, <Link href="/cash-for-trucks/">cash for trucks and commercial vehicles</Link> lists
             the GVM, body type and site access details to send so suitability can be confirmed. That page has its own sections
-            on <Link href={truckSectionHref("old")}>{truckSectionAnchor("old")}</Link> and
-            on <Link href={truckSectionHref("scrap")}>{truckSectionAnchor("scrap")}</Link>.
+            on <Link href={truckSectionHref("old")}>{truckSectionAnchor("old")}</Link>,
+            on <Link href={truckSectionHref("scrap")}>{truckSectionAnchor("scrap")}</Link> and
+            on <Link href={truckSectionHref("used")}>{truckSectionAnchor("used")}</Link>.
           </p>
           <p>
             If the vehicle mainly needs collecting, <Link href="/car-removal-brisbane/">car removal in Brisbane</Link> covers
