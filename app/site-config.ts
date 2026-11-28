@@ -11,7 +11,16 @@ export const SITE = {
   },
 } as const;
 
-export const HOME_TITLE = "Cash for Cars Brisbane | Check Your Pickup Terms";
+// 28 November 2026: the homepage no longer opens with "Cash for Cars Brisbane".
+// Search Console (26 August to 25 November 2026) showed it at position 9.1 for
+// "cash for car brisbane" with 2,700 impressions and no clicks, and the term
+// ownership map locked that day gives that search and the plural to other
+// sites. The title and heading now open with what the page already said in its
+// second half: check the offer and the pickup terms before selling. The brand
+// name ends the title, because "Ozi Cash for Cars Brisbane" would put the
+// phrase back.
+export const HOME_TITLE = "Check Your Pickup Terms in Brisbane | Ozi Cash for Cars";
+export const HOME_HEADING = "Check Your Offer and Pickup Terms in Brisbane";
 
 export const HOME_DESCRIPTION =
   "Request a Brisbane vehicle quote with your car's condition and pickup suburb. Review the offer, payment and towing terms before deciding to sell.";

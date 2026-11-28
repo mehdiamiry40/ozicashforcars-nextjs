@@ -17,12 +17,18 @@ const TRUCK_LINKS_ADDED_PATHS = [
   ...Object.keys(TRUCK_ENQUIRY_PLACES),
 ];
 
+// 28 November 2026: the homepage title and heading stopped opening with "Cash
+// for Cars Brisbane", and its guide gained a link to the used-trucks section.
+const HOME_RETITLED_ISO = "2026-11-28";
+
 // A date is recorded only for a page whose own content was edited on a known
 // day. It is never taken from the build, and a page is not dated because a
-// shared card, list or footer on it changed.
+// shared card, list or footer on it changed. A page edited twice carries the
+// later date, so the homepage entry comes last.
 const AUTHORED_LAST_MODIFIED: Record<string, string> = {
   "/privacy-policy/": PRIVACY_POLICY_UPDATED_ISO,
   ...Object.fromEntries(TRUCK_LINKS_ADDED_PATHS.map((path) => [path, TRUCK_LINKS_ADDED_ISO])),
+  "/": HOME_RETITLED_ISO,
 };
 
 export default function sitemap(): MetadataRoute.Sitemap {

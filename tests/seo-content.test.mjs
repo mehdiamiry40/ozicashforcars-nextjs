@@ -85,6 +85,7 @@ test("the homepage links to the core service pages from sentences, not only from
     "/cash-for-trucks/": "cash for trucks and commercial vehicles",
     "/cash-for-trucks/#old-trucks": "cash for old and unwanted trucks",
     "/cash-for-trucks/#scrap-trucks": "cash for scrap and junk trucks",
+    "/cash-for-trucks/#used-trucks": "cash for used trucks",
     "/car-removal-brisbane/": "car removal in Brisbane",
     "/car-removal-brisbane/#scrap-cars": "scrap car and shell removal",
     "/car-removal-brisbane/#unwanted-cars": "unwanted car removal from a property",
@@ -260,10 +261,14 @@ const TRUCK_SECTIONS = [
     guidance: [/private sale or a trade-in/, /toll tags and tracking devices/],
   },
 ];
+// The homepage title and heading since 28 November 2026, when they stopped opening with "Cash for Cars Brisbane".
+const HOME_TITLE = "Check Your Pickup Terms in Brisbane | Ozi Cash for Cars";
+const HOME_HEADING = "Check Your Offer and Pickup Terms in Brisbane";
 // Every page that was given a link to the trucks page, with the address and the anchor it uses.
-// The title and heading are what each page had before; a link is all it gained.
+// The title and heading are what each page had before; a link is all it gained. The homepage is
+// the exception: it was retitled on 28 November 2026 and gained the link to the used-trucks section.
 const TRUCK_LINK_SOURCES = [
-  { path: "/", links: { "/cash-for-trucks/": "cash for trucks and commercial vehicles", "/cash-for-trucks/#old-trucks": "cash for old and unwanted trucks", "/cash-for-trucks/#scrap-trucks": "cash for scrap and junk trucks" }, title: "Cash for Cars Brisbane | Check Your Pickup Terms", heading: "Cash for Cars Brisbane" },
+  { path: "/", links: { "/cash-for-trucks/": "cash for trucks and commercial vehicles", "/cash-for-trucks/#old-trucks": "cash for old and unwanted trucks", "/cash-for-trucks/#scrap-trucks": "cash for scrap and junk trucks", "/cash-for-trucks/#used-trucks": "cash for used trucks" }, title: HOME_TITLE, heading: HOME_HEADING },
   { path: "/cash-for-junk-cars/", links: { "/cash-for-trucks/#scrap-trucks": "cash for scrap and junk trucks" }, title: "Cash for Junk Cars | Ozi Cash for Cars", heading: "Cash for Junk Cars" },
   { path: "/cash-for-scrap-cars/", links: { "/cash-for-trucks/#scrap-trucks": "cash for scrap and junk trucks" }, title: "Cash for Scrap Cars | Ozi Cash for Cars", heading: "Cash for Scrap Cars" },
   { path: "/cash-for-old-cars/", links: { "/cash-for-trucks/#old-trucks": "cash for old and unwanted trucks" }, title: "Cash for Old Cars | Ozi Cash for Cars", heading: "Cash for Old Cars" },
@@ -327,6 +332,53 @@ test("the trucks page names Brisbane and old, used, scrap, junk and unwanted tru
     text(main) + headTitle(TRUCKS_PAGE) + description,
     /free towing|same[- ]day|top dollar|best price|instant cash|\$\d|\d+\s*(?:tonnes?|t\b|kg)|any (?:size|condition|make)|all (?:makes|sizes|trucks)|guarantee|licen[cs]ed|years? (?:of )?experience/i,
   );
+});
+
+function metaContent(path, attribute, name) {
+  return text(pages.get(path).html.match(new RegExp(`<meta ${attribute}="${name}" content="([^"]*)"`))?.[1] ?? "");
+}
+
+test("the homepage opens with checking the offer and pickup terms, and leaves the truck searches to the trucks page", () => {
+  const { main, graph } = pages.get("/");
+  const title = headTitle("/");
+  const heading = mainHeading("/");
+  assert.equal(title, HOME_TITLE);
+  assert.ok(title.length <= 60, `The title is ${title.length} characters`);
+  assert.match(title, / \| Ozi Cash for Cars$/, "The brand name closes the title");
+  assert.equal(heading, HOME_HEADING);
+  assert.equal(main.match(/<h1\b/g)?.length, 1, "The homepage must keep exactly one H1");
+  for (const lead of [title, heading]) {
+    assert.match(lead, /^Check Your (?:Offer and )?Pickup Terms in Brisbane/, lead);
+  }
+  // The share tags and the structured data follow the title and the heading.
+  assert.equal(metaContent("/", "property", "og:title"), title);
+  assert.equal(metaContent("/", "name", "twitter:title"), title);
+  assert.equal(metaContent("/", "property", "og:image:alt"), heading);
+  const webPage = graph.find((entity) => entity["@type"] === "WebPage");
+  assert.equal(webPage.name, heading);
+  const description = metaDescription("/");
+  assert.match(description, /^Request a Brisbane vehicle quote/);
+  assert.match(description, /Review the offer, payment and towing terms before deciding to sell\./);
+  assert.ok(description.length <= 155, `The description is ${description.length} characters`);
+  assert.equal(metaContent("/", "property", "og:description"), description);
+  assert.equal(metaContent("/", "name", "twitter:description"), description);
+  assert.equal(webPage.description, description);
+  // "Cash for Cars Brisbane" and "Cash for Car Brisbane" belong to other sites, so the homepage
+  // uses neither in its title, heading, description, share tags or page structured data.
+  for (const value of [title, heading, description, webPage.name, webPage.description]) {
+    assert.doesNotMatch(value, /cash for cars? brisbane/i, value);
+  }
+  // The steps and towing terms the title points at are the ones the page already had.
+  const copy = text(main);
+  for (const step of ["Request a quote", "Review the offer", "Choose a pickup time", "Get paid on pickup"]) assert.ok(copy.includes(step), step);
+  assert.match(copy, /Standard towing is included in covered pickup arrangements/);
+  // Truck searches stay with the trucks page: no other page takes "cash for trucks" as its title or heading.
+  assert.doesNotMatch(title + heading, /truck/i);
+  for (const path of pages.keys()) {
+    if (path !== TRUCKS_PAGE) assert.doesNotMatch(`${headTitle(path)} ${mainHeading(path)}`, /cash for trucks/i, path);
+  }
+  assert.equal(headTitle(TRUCKS_PAGE), "Cash for Trucks Brisbane | Old, Used and Scrap Trucks");
+  assert.equal(mainHeading(TRUCKS_PAGE), "Cash for Trucks Brisbane");
 });
 
 test("no page carries FAQ structured data, so the trucks page's questions add none", () => {
